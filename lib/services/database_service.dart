@@ -3,6 +3,8 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../models/expense.dart';
+import '../models/user_category.dart';
+import '../models/categories.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
@@ -19,46 +21,49 @@ class DatabaseService {
 
   Future<Database> _initDatabase() async {
     try {
-      // Get the documents directory for Linux
-      Directory documentsDirectory;
+      String databasesPath = await getDatabasesPath();
+      String path = join(databasesPath, 'expense_database.db');
       
-      if (Platform.isLinux) {
-        // For Linux, use a custom path in the user's home directory
-        final homeDir = Platform.environment['HOME'] ?? '.';
-        final appDir = Directory('$homeDir/.expense_log');
-        if (!await appDir.exists()) {
-          await appDir.create(recursive: true);
-        }
-        documentsDirectory = appDir;
-      } else {
-        // For other platforms, use getApplicationDocumentsDirectory
-        documentsDirectory = await getApplicationDocumentsDirectory();
-      }
-      
-      String path = join(documentsDirectory.path, 'expense_database.db');
-      
-      print('Database path: $path');
-
       return await openDatabase(
         path,
-        version: 1,
+        version: 2, // Increment version number
         onCreate: (Database db, int version) async {
-          print('Creating database tables...');
+          // Create new database with subcategory column
           await db.execute('''
             CREATE TABLE expenses(
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               title TEXT NOT NULL,
               amount REAL NOT NULL,
               category TEXT NOT NULL,
+              subcategory TEXT,
               date TEXT NOT NULL,
               note TEXT,
               receiptPath TEXT
             )
           ''');
-          print('Database tables created successfully');
+          
+          // New categories table
+          await db.execute('''
+            CREATE TABLE user_categories(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              iconName TEXT,
+              colorValue INTEGER NOT NULL,
+              isCustom INTEGER NOT NULL DEFAULT 1,
+              parentId INTEGER,
+              displayOrder INTEGER DEFAULT 0,
+              FOREIGN KEY(parentId) REFERENCES user_categories(id) ON DELETE CASCADE
+            )
+          ''');
+          
+          // Insert default categories
+          await _insertDefaultCategories(db);
         },
-        onOpen: (db) {
-          print('Database opened successfully');
+        onUpgrade: (Database db, int oldVersion, int newVersion) async {
+          if (oldVersion < 2) {
+            // Add subcategory column to existing table
+            await db.execute('ALTER TABLE expenses ADD COLUMN subcategory TEXT');
+          }
         },
       );
     } catch (e) {
@@ -182,4 +187,132 @@ class DatabaseService {
       return {};
     }
   }
+  Future<void> _insertDefaultCategories(Database db) async {
+  // First, insert all main categories
+  Map<String, int> mainCategoryIds = {};
+  
+  for (var i = 0; i < defaultCategories.length; i++) {
+    final cat = defaultCategories[i];
+    final id = await db.insert('user_categories', {
+      'name': cat.name,
+      'iconName': cat.icon.toString().split('.').last,
+      'colorValue': cat.color.value,
+      'isCustom': 0,
+      'parentId': null,
+      'displayOrder': i,
+    });
+    mainCategoryIds[cat.name] = id;
+  }
+  
+  // Now insert all subcategories for each main category
+  for (var cat in defaultCategories) {
+    final parentId = mainCategoryIds[cat.name];
+    if (parentId != null) {
+      for (var j = 0; j < cat.subcategories.length; j++) {
+        final subName = cat.subcategories[j];
+        await db.insert('user_categories', {
+          'name': subName,
+          'iconName': cat.icon.toString().split('.').last, // Inherit parent icon
+          'colorValue': cat.color.value, // Inherit parent color
+          'isCustom': 0,
+          'parentId': parentId,
+          'displayOrder': j,
+        });
+      }
+    }
+  }
+}
+
+Future<List<UserCategory>> getAllMainCategories() async {
+  Database db = await database;
+  final result = await db.query(
+    'user_categories',
+    where: 'parentId IS NULL',
+    orderBy: 'displayOrder, name',
+  );
+  return result.map((map) => UserCategory.fromMap(map)).toList();
+}
+
+Future<List<UserCategory>> getSubcategories(int parentId) async {
+  Database db = await database;
+  final result = await db.query(
+    'user_categories',
+    where: 'parentId = ?',
+    whereArgs: [parentId],
+    orderBy: 'displayOrder, name',
+  );
+  return result.map((map) => UserCategory.fromMap(map)).toList();
+}
+
+Future<UserCategory?> getCategoryById(int id) async {
+  Database db = await database;
+  final result = await db.query(
+    'user_categories',
+    where: 'id = ?',
+    whereArgs: [id],
+  );
+  if (result.isNotEmpty) {
+    return UserCategory.fromMap(result.first);
+  }
+  return null;
+}
+
+Future<int> insertCategory(UserCategory category) async {
+  try {
+    Database db = await database;
+    
+    // Validate required fields
+    if (category.name.isEmpty) {
+      throw Exception('Category name cannot be empty');
+    }
+    
+    final map = category.toMap();
+    // Remove id if it's null (for auto-increment)
+    map.remove('id');
+    
+    print('Inserting category with data: $map');
+    
+    int id = await db.insert('user_categories', map);
+    print('Category inserted with ID: $id');
+    
+    return id;
+  } catch (e) {
+    print('Error inserting category: $e');
+    rethrow;
+  }
+}
+
+Future<int> updateCategory(UserCategory category) async {
+  Database db = await database;
+  return await db.update(
+    'user_categories',
+    category.toMap(),
+    where: 'id = ?',
+    whereArgs: [category.id],
+  );
+}
+
+Future<int> deleteCategory(int id) async {
+  Database db = await database;
+  // First, delete any subcategories
+  await db.delete('user_categories', where: 'parentId = ?', whereArgs: [id]);
+  // Then delete the main category
+  return await db.delete('user_categories', where: 'id = ?', whereArgs: [id]);
+}
+
+Future<bool> isCategoryInUse(int categoryId) async {
+  Database db = await database;
+  final category = await getCategoryById(categoryId);
+  if (category == null) return false;
+  
+  // Check if any expense uses this category or subcategory
+  final result = await db.query(
+    'expenses',
+    where: 'category = ? OR subcategory = ?',
+    whereArgs: [category.name, category.name],
+    limit: 1,
+  );
+  return result.isNotEmpty;
+}
+
 }

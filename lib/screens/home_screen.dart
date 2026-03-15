@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../models/expense.dart';
+import 'category_management_screen.dart';
 import '../widgets/expense_chart.dart';
 import '../widgets/expense_list.dart';
 import 'add_expense_screen.dart';
@@ -50,6 +51,18 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Expense Log'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.category),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CategoryManagementScreen(),
+                ),
+              ).then((_) => _loadExpenses()); // Refresh when returning
+            },
+            tooltip: 'Manage Categories',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadExpenses,

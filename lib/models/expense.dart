@@ -3,6 +3,7 @@ class Expense {
   String title;
   double amount;
   String category;
+  String? subcategory;  // New field for subcategory
   DateTime date;
   String? note;
   String? receiptPath;
@@ -12,6 +13,7 @@ class Expense {
     required this.title,
     required this.amount,
     required this.category,
+    this.subcategory,  // Optional subcategory
     required this.date,
     this.note,
     this.receiptPath,
@@ -23,6 +25,7 @@ class Expense {
       'title': title,
       'amount': amount,
       'category': category,
+      'subcategory': subcategory,  // Add to map
       'date': date.toIso8601String(),
       'note': note,
       'receiptPath': receiptPath,
@@ -37,6 +40,7 @@ class Expense {
           ? (map['amount'] as int).toDouble() 
           : map['amount'] as double,
       category: map['category'],
+      subcategory: map['subcategory'],  // Add from map
       date: DateTime.parse(map['date']),
       note: map['note'],
       receiptPath: map['receiptPath'],
@@ -45,6 +49,6 @@ class Expense {
 
   @override
   String toString() {
-    return 'Expense(id: $id, title: $title, amount: $amount, category: $category, date: $date)';
+    return 'Expense(id: $id, title: $title, amount: $amount, category: $category, subcategory: $subcategory, date: $date)';
   }
 }

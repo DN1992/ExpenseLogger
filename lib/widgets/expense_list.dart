@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/expense.dart';
+import '../models/categories.dart'; 
 
 class ExpenseList extends StatelessWidget {
   final List<Expense> expenses;
@@ -85,10 +86,25 @@ class ExpenseList extends StatelessWidget {
                   expense.title,
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
+                // Inside the ListTile subtitle section:
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Show main category
                     Text(expense.category),
+                    
+                    // Show subcategory if it exists
+                    if (expense.subcategory != null)
+                      Text(
+                        '  • ${expense.subcategory}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    
+                    // Show date
                     Text(
                       DateFormat('MMM dd, yyyy').format(expense.date),
                       style: const TextStyle(fontSize: 12),
@@ -116,23 +132,6 @@ class ExpenseList extends StatelessWidget {
   }
 
   Color _getCategoryColor(String category) {
-    switch (category) {
-      case 'Food & Dining':
-        return Colors.orange;
-      case 'Transportation':
-        return Colors.blue;
-      case 'Shopping':
-        return Colors.purple;
-      case 'Entertainment':
-        return Colors.pink;
-      case 'Bills & Utilities':
-        return Colors.red;
-      case 'Healthcare':
-        return Colors.green;
-      case 'Education':
-        return Colors.teal;
-      default:
-        return Colors.grey;
-    }
+    return getCategoryColor(category);
   }
 }

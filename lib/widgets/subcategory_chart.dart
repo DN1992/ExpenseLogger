@@ -2,69 +2,52 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../models/expense.dart';
 import '../models/categories.dart';
+import '../models/user_category.dart';
 
-class ExpenseChart extends StatelessWidget {
+class SubcategoryChart extends StatelessWidget {
   final List<Expense> expenses;
+  final String category;
 
-  const ExpenseChart({super.key, required this.expenses});
+  const SubcategoryChart({
+    super.key,
+    required this.expenses,
+    required this.category,
+  });
 
-  Map<String, double> _getCategoryTotals() {
+  Map<String, double> _getSubcategoryTotals() {
     Map<String, double> totals = {};
-    for (var expense in expenses) {
-      totals[expense.category] = (totals[expense.category] ?? 0) + expense.amount;
+    final categoryExpenses = expenses.where((e) => e.category == category);
+    
+    for (var expense in categoryExpenses) {
+      String key = expense.subcategory ?? 'General';
+      totals[key] = (totals[key] ?? 0) + expense.amount;
     }
     return totals;
   }
 
-  List<PieChartSectionData> _getSections() {
-    final totals = _getCategoryTotals();
-    final totalAmount = totals.values.fold(0.0, (sum, amount) => sum + amount);
-    
-    final colors = [
-      Colors.orange,
-      Colors.blue,
-      Colors.purple,
-      Colors.pink,
-      Colors.red,
-      Colors.green,
-      Colors.teal,
-      Colors.grey,
-    ];
-
-    return totals.entries.map((entry) {
-      final percentage = (entry.value / totalAmount * 100).toStringAsFixed(1);
-      return PieChartSectionData(
-        value: entry.value,
-        title: '$percentage%',
-        radius: 50,
-        color: colors[totals.keys.toList().indexOf(entry.key) % colors.length],
-        titleStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      );
-    }).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final totals = _getCategoryTotals();
+    final totals = _getSubcategoryTotals();
     
     if (totals.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    final categoryColor = categories.firstWhere(
+      (c) => c.name == category,
+      orElse: () => categories.last,
+    ).color;
+
     return Card(
-      elevation: 2,
+      margin: const EdgeInsets.all(16),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Spending by Category',
-              style: TextStyle(
+            Text(
+              '$category - Subcategory Breakdown',
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -74,7 +57,19 @@ class ExpenseChart extends StatelessWidget {
               height: 200,
               child: PieChart(
                 PieChartData(
-                  sections: _getSections(),
+                  sections: totals.entries.map((entry) {
+                    return PieChartSectionData(
+                      value: entry.value,
+                      title: '${(entry.value / totals.values.fold(0.0, (a, b) => a + b) * 100).toStringAsFixed(1)}%',
+                      radius: 50,
+                      color: categoryColor.withOpacity(0.5 + (totals.keys.toList().indexOf(entry.key) * 0.1).clamp(0.3, 0.9)),
+                      titleStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    );
+                  }).toList(),
                   sectionsSpace: 2,
                   centerSpaceRadius: 40,
                 ),
@@ -91,8 +86,9 @@ class ExpenseChart extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
+                    color: categoryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: categoryColor.withOpacity(0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -101,7 +97,7 @@ class ExpenseChart extends StatelessWidget {
                         width: 12,
                         height: 12,
                         decoration: BoxDecoration(
-                          color: _getCategoryColor(entry.key),
+                          color: categoryColor.withOpacity(0.5 + (totals.keys.toList().indexOf(entry.key) * 0.1).clamp(0.3, 0.9)),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -123,9 +119,5 @@ class ExpenseChart extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Color _getCategoryColor(String category) {
-    return getCategoryColor(category);
   }
 }

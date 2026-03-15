@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/expense.dart';
+import '../models/user_category.dart';
 import '../services/database_service.dart';
 
 class AddExpenseScreen extends StatefulWidget {
@@ -17,35 +18,104 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
 
-  String _selectedCategory = 'Food & Dining';
+  List<UserCategory> _mainCategories = [];
+  Map<int, List<UserCategory>> _subcategories = {};
+  String? _selectedCategory;
+  String? _selectedSubcategory;
   DateTime _selectedDate = DateTime.now();
   String? _receiptPath;
   bool _isSaving = false;
+  bool _loadingCategories = true;
 
-  final List<String> _categories = [
-    'Food & Dining',
-    'Transportation',
-    'Shopping',
-    'Entertainment',
-    'Bills & Utilities',
-    'Healthcare',
-    'Education',
-    'Other',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    setState(() => _loadingCategories = true);
+    try {
+      final dbService = DatabaseService();
+      _mainCategories = await dbService.getAllMainCategories();
+      
+      // Set default selected category if available
+      if (_mainCategories.isNotEmpty && _selectedCategory == null) {
+        _selectedCategory = _mainCategories.first.name;
+      }
+      
+      // Load subcategories for each main category
+      for (var category in _mainCategories) {
+        final subs = await dbService.getSubcategories(category.id!);
+        _subcategories[category.id!] = subs;
+      }
+    } catch (e) {
+      print('Error loading categories: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading categories: $e')),
+      );
+    } finally {
+      setState(() => _loadingCategories = false);
+    }
+  }
+
+  List<UserCategory> _getCurrentSubcategories() {
+    if (_selectedCategory == null) return [];
+    final currentCategory = _mainCategories.firstWhere(
+      (c) => c.name == _selectedCategory,
+      orElse: () => _mainCategories.isNotEmpty ? _mainCategories.first : UserCategory(
+        name: '',
+        iconName: 'category',
+        colorValue: Colors.grey.value,
+        isCustom: false,
+        displayOrder: 0,
+      ),
+    );
+    return _subcategories[currentCategory.id] ?? [];
+  }
+
+  IconData _getIconData(String? iconName) {
+    switch (iconName) {
+      case 'restaurant': return Icons.restaurant;
+      case 'shopping_cart': return Icons.shopping_cart;
+      case 'directions_car': return Icons.directions_car;
+      case 'local_gas_station': return Icons.local_gas_station;
+      case 'shopping_bag': return Icons.shopping_bag;
+      case 'movie': return Icons.movie;
+      case 'receipt': return Icons.receipt;
+      case 'local_hospital': return Icons.local_hospital;
+      case 'school': return Icons.school;
+      case 'flight': return Icons.flight;
+      case 'face': return Icons.face;
+      case 'category': return Icons.category;
+      case 'home': return Icons.home;
+      case 'work': return Icons.work;
+      case 'pets': return Icons.pets;
+      case 'sports': return Icons.sports;
+      case 'music_note': return Icons.music_note;
+      case 'book': return Icons.book;
+      case 'phone_android': return Icons.phone_android;
+      case 'pool': return Icons.pool;
+      default: return Icons.category;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final subcategories = _getCurrentSubcategories();
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Expense'),
       ),
-      body: _isSaving
+      body: _isSaving || _loadingCategories
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _formKey,
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  // Title Field
                   TextFormField(
                     controller: _titleController,
                     decoration: const InputDecoration(
@@ -62,6 +132,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
+
+                  // Amount Field
                   TextFormField(
                     controller: _amountController,
                     decoration: const InputDecoration(
@@ -85,26 +157,138 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedCategory,
-                    decoration: const InputDecoration(
-                      labelText: 'Category',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.category),
+
+                  // Main Category Dropdown
+                  if (_mainCategories.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedCategory,
+                          isExpanded: true,
+                          hint: const Text('Select Category'),
+                          icon: const Icon(Icons.arrow_drop_down),
+                          items: _mainCategories.map((category) {
+                            return DropdownMenuItem(
+                              value: category.name,
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 12,
+                                    backgroundColor: Color(category.colorValue),
+                                    child: Icon(
+                                      _getIconData(category.iconName),
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(category.name),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedCategory = value;
+                              _selectedSubcategory = null;
+                            });
+                          },
+                        ),
+                      ),
                     ),
-                    items: _categories.map((category) {
-                      return DropdownMenuItem(
-                        value: category,
-                        child: Text(category),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedCategory = value!;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Subcategory Dropdown
+                  if (subcategories.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedSubcategory,
+                          hint: const Text('Select Subcategory (Optional)'),
+                          isExpanded: true,
+                          icon: const Icon(Icons.arrow_drop_down),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('None'),
+                            ),
+                            ...subcategories.map((sub) {
+                              return DropdownMenuItem(
+                                value: sub.name,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _getIconData(sub.iconName),
+                                      size: 16,
+                                      color: Color(sub.colorValue),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(sub.name),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedSubcategory = value;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Show message if no categories
+                  if (_mainCategories.isEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.warning, color: Colors.orange, size: 32),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'No categories found',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Please add categories in the Category Management screen first',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/categories');
+                            },
+                            icon: const Icon(Icons.category),
+                            label: const Text('Manage Categories'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Date Picker
                   ListTile(
                     title: const Text('Date'),
                     subtitle: Text(DateFormat('MMM dd, yyyy').format(_selectedDate)),
@@ -116,6 +300,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+
+                  // Note Field
                   TextFormField(
                     controller: _noteController,
                     decoration: const InputDecoration(
@@ -126,6 +312,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     maxLines: 3,
                   ),
                   const SizedBox(height: 16),
+
+                  // Receipt Attachment
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -171,8 +359,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
+
+                  // Save Button
                   ElevatedButton(
-                    onPressed: _isSaving ? null : _saveExpense,
+                    onPressed: _mainCategories.isEmpty ? null : _saveExpense,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
@@ -261,25 +451,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       });
 
       try {
-        // Parse amount with proper decimal handling
         double amount = double.parse(_amountController.text.trim());
         
-        // Create expense object
         final expense = Expense(
           title: _titleController.text.trim(),
           amount: amount,
-          category: _selectedCategory,
+          category: _selectedCategory ?? _mainCategories.first.name,
+          subcategory: _selectedSubcategory,
           date: _selectedDate,
           note: _noteController.text.isNotEmpty ? _noteController.text.trim() : null,
           receiptPath: _receiptPath,
         );
 
-        print('Saving expense: ${expense.title}, Amount: ${expense.amount}'); // Debug log
+        print('Saving expense: ${expense.title}, Category: ${expense.category}, Subcategory: ${expense.subcategory}');
 
         final databaseService = DatabaseService();
         final id = await databaseService.insertExpense(expense);
-        
-        print('Expense saved with ID: $id'); // Debug log
         
         if (id > 0 && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -290,12 +477,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           );
           Navigator.pop(context, true);
         } else {
-          throw Exception('Failed to save expense - returned ID: $id');
+          throw Exception('Failed to save expense');
         }
       } catch (e) {
-        print('Error saving expense: $e'); // Debug log
-        print('Stack trace: ${StackTrace.current}'); // Debug log
-        
+        print('Error saving expense: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
