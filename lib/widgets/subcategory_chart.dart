@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../models/expense.dart';
-import '../models/categories.dart';
+import '../services/database_service.dart';
 import '../models/user_category.dart';
 
-class SubcategoryChart extends StatelessWidget {
+class SubcategoryChart extends StatefulWidget {
   final List<Expense> expenses;
   final String category;
 
@@ -14,29 +14,122 @@ class SubcategoryChart extends StatelessWidget {
     required this.category,
   });
 
-  Map<String, double> _getSubcategoryTotals() {
+  @override
+  State<SubcategoryChart> createState() => _SubcategoryChartState();
+}
+
+class _SubcategoryChartState extends State<SubcategoryChart> {
+  Map<String, double> _subcategoryTotals = {};
+  Color _categoryColor = Colors.grey;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategoryData();
+  }
+
+  Future<void> _loadCategoryData() async {
+    try {
+      // Get category color from database
+      final dbService = DatabaseService();
+      final mainCategories = await dbService.getAllMainCategories();
+      
+      final category = mainCategories.firstWhere(
+        (c) => c.name == widget.category,
+        orElse: () => UserCategory(
+          name: widget.category,
+          iconName: 'category',
+          colorValue: Colors.grey.value,
+          isCustom: false,
+          displayOrder: 0,
+        ),
+      );
+      
+      setState(() {
+        _categoryColor = Color(category.colorValue);
+        _calculateSubcategoryTotals();
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading category data: $e');
+      setState(() {
+        _categoryColor = Colors.grey;
+        _calculateSubcategoryTotals();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _calculateSubcategoryTotals() {
     Map<String, double> totals = {};
-    final categoryExpenses = expenses.where((e) => e.category == category);
     
+    // Filter expenses for this category
+    final categoryExpenses = widget.expenses.where((e) => e.category == widget.category);
+    
+    // Sum amounts by subcategory
     for (var expense in categoryExpenses) {
-      String key = expense.subcategory ?? 'General';
+      String key = expense.subcategory ?? 'Uncategorized';
       totals[key] = (totals[key] ?? 0) + expense.amount;
     }
-    return totals;
+    
+    // Sort by amount (highest first)
+    final sortedEntries = totals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    _subcategoryTotals = Map.fromEntries(sortedEntries);
   }
 
   @override
   Widget build(BuildContext context) {
-    final totals = _getSubcategoryTotals();
-    
-    if (totals.isEmpty) {
-      return const SizedBox.shrink();
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
     }
 
-    final categoryColor = categories.firstWhere(
-      (c) => c.name == category,
-      orElse: () => categories.last,
-    ).color;
+    if (_subcategoryTotals.isEmpty) {
+      return Card(
+        margin: const EdgeInsets.all(16),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              children: [
+                Icon(
+                  Icons.pie_chart_outline,
+                  size: 48,
+                  color: Colors.grey.shade400,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'No subcategory data for ${widget.category}',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Add expenses with subcategories to see breakdown',
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final totalAmount = _subcategoryTotals.values.fold(0.0, (a, b) => a + b);
 
     return Card(
       margin: const EdgeInsets.all(16),
@@ -45,79 +138,159 @@ class SubcategoryChart extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header with category name and color indicator
+            Row(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: _categoryColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${widget.category} - Subcategory Breakdown',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             Text(
-              '$category - Subcategory Breakdown',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+              'Total: \$${totalAmount.toStringAsFixed(2)}',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
               ),
             ),
             const SizedBox(height: 20),
+            
+            // Pie chart
             SizedBox(
               height: 200,
               child: PieChart(
                 PieChartData(
-                  sections: totals.entries.map((entry) {
-                    return PieChartSectionData(
-                      value: entry.value,
-                      title: '${(entry.value / totals.values.fold(0.0, (a, b) => a + b) * 100).toStringAsFixed(1)}%',
-                      radius: 50,
-                      color: categoryColor.withOpacity(0.5 + (totals.keys.toList().indexOf(entry.key) * 0.1).clamp(0.3, 0.9)),
-                      titleStyle: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    );
-                  }).toList(),
+                  sections: _getPieSections(),
                   sectionsSpace: 2,
                   centerSpaceRadius: 40,
+                  pieTouchData: PieTouchData(
+                    touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                      // Handle touch events if needed
+                    },
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: totals.entries.map((entry) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: categoryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: categoryColor.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: categoryColor.withOpacity(0.5 + (totals.keys.toList().indexOf(entry.key) * 0.1).clamp(0.3, 0.9)),
-                          shape: BoxShape.circle,
+            
+            // Legend and amounts
+            ..._subcategoryTotals.entries.map((entry) {
+              final percentage = (entry.value / totalAmount * 100);
+              final colorIndex = _subcategoryTotals.keys.toList().indexOf(entry.key);
+              final sectionColor = _getSubcategoryColor(colorIndex);
+              
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: sectionColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: sectionColor.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: sectionColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        entry.key,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(entry.key),
-                      const SizedBox(width: 4),
-                      Text(
-                        '\$${entry.value.toStringAsFixed(2)}',
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '\$${entry.value.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: sectionColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${percentage.toStringAsFixed(1)}%',
                         style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
           ],
         ),
       ),
     );
+  }
+
+  List<PieChartSectionData> _getPieSections() {
+    final totalAmount = _subcategoryTotals.values.fold(0.0, (a, b) => a + b);
+    
+    return _subcategoryTotals.entries.map((entry) {
+      final percentage = (entry.value / totalAmount * 100);
+      final index = _subcategoryTotals.keys.toList().indexOf(entry.key);
+      final color = _getSubcategoryColor(index);
+      
+      return PieChartSectionData(
+        value: entry.value,
+        title: '${percentage.toStringAsFixed(1)}%',
+        radius: 50,
+        color: color,
+        titleStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+        titlePositionPercentageOffset: 0.6,
+      );
+    }).toList();
+  }
+
+  Color _getSubcategoryColor(int index) {
+    // Generate different shades of the main category color
+    final baseColor = _categoryColor;
+    final hsl = HSLColor.fromColor(baseColor);
+    
+    // Vary lightness and saturation based on index
+    final lightness = (0.3 + (index * 0.1)).clamp(0.3, 0.8);
+    final saturation = (0.5 + (index * 0.05)).clamp(0.5, 0.9);
+    
+    return hsl.withLightness(lightness).withSaturation(saturation).toColor();
   }
 }
