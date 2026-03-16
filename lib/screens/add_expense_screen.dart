@@ -19,7 +19,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _noteController = TextEditingController();
 
   List<UserCategory> _mainCategories = [];
-  Map<int, List<UserCategory>> _subcategories = {};
+  final Map<int, List<UserCategory>> _subcategories = {};
   String? _selectedCategory;
   String? _selectedSubcategory;
   DateTime _selectedDate = DateTime.now();

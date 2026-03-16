@@ -188,143 +188,154 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
         builder: (context, setState) {
           return AlertDialog(
             title: const Text('Add New Category'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Category name input
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Category Name',
-                      border: OutlineInputBorder(),
-                      hintText: 'e.g., Hobbies, Pets, etc.',
-                      prefixIcon: Icon(Icons.title),
+            content: Container(
+              width: double.maxFinite, // Constrain width
+              constraints: const BoxConstraints(maxHeight: 500), // Constrain height
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Category name input
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Category Name',
+                        border: OutlineInputBorder(),
+                        hintText: 'e.g., Hobbies, Pets, etc.',
+                        prefixIcon: Icon(Icons.title),
+                      ),
+                      autofocus: true,
+                      enabled: !isSaving,
                     ),
-                    autofocus: true,
-                    enabled: !isSaving,
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  // Color picker section
-                  const Text(
-                    'Choose Color:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      Colors.red,
-                      Colors.pink,
-                      Colors.purple,
-                      Colors.deepPurple,
-                      Colors.indigo,
-                      Colors.blue,
-                      Colors.lightBlue,
-                      Colors.cyan,
-                      Colors.teal,
-                      Colors.green,
-                      Colors.lightGreen,
-                      Colors.lime,
-                      Colors.yellow,
-                      Colors.amber,
-                      Colors.orange,
-                      Colors.deepOrange,
-                      Colors.brown,
-                      Colors.grey,
-                      Colors.blueGrey,
-                      Colors.black,
-                    ].map((color) {
-                      return GestureDetector(
-                        onTap: isSaving ? null : () {
-                          setState(() {
-                            selectedColor = color;
-                            colorValue = color.value;
-                          });
-                        },
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                            border: selectedColor == color
-                                ? Border.all(color: Colors.black, width: 3)
-                                : null,
-                            boxShadow: selectedColor == color
-                                ? [BoxShadow(color: Colors.black26, blurRadius: 4)]
-                                : null,
-                          ),
-                          child: selectedColor == color
-                              ? const Icon(Icons.check, color: Colors.white, size: 20)
-                              : null,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  // Icon picker section
-                  const Text(
-                    'Choose Icon:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 150,
-                    child: GridView.count(
-                      crossAxisCount: 5,
-                      shrinkWrap: true,
-                      childAspectRatio: 1,
-                      children: [
-                        Icons.restaurant,
-                        Icons.shopping_cart,
-                        Icons.directions_car,
-                        Icons.local_gas_station,
-                        Icons.shopping_bag,
-                        Icons.movie,
-                        Icons.receipt,
-                        Icons.local_hospital,
-                        Icons.school,
-                        Icons.flight,
-                        Icons.face,
-                        Icons.category,
-                        Icons.home,
-                        Icons.work,
-                        Icons.pets,
-                        Icons.sports,
-                        Icons.music_note,
-                        Icons.book,
-                        Icons.phone_android,
-                        Icons.pool,
-                        Icons.fitness_center,
-                        Icons.brush,
-                        Icons.cake,
-                        Icons.coffee,
-                        Icons.wine_bar,
-                      ].map((icon) {
-                        return IconButton(
-                          icon: Icon(icon),
-                          color: selectedIcon == icon ? Colors.blue : Colors.grey,
-                          iconSize: 28,
-                          onPressed: isSaving ? null : () {
-                            setState(() {
-                              selectedIcon = icon;
-                              iconName = icon.toString().split('.').last;
-                            });
-                          },
-                        );
-                      }).toList(),
+                    const SizedBox(height: 20),
+                    
+                    // Color picker section
+                    const Text(
+                      'Choose Color:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
-                  ),
-                  
-                  if (isSaving) ...[
-                    const SizedBox(height: 16),
-                    const Center(child: CircularProgressIndicator()),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 60,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          Colors.red,
+                          Colors.pink,
+                          Colors.purple,
+                          Colors.deepPurple,
+                          Colors.indigo,
+                          Colors.blue,
+                          Colors.lightBlue,
+                          Colors.cyan,
+                          Colors.teal,
+                          Colors.green,
+                          Colors.lightGreen,
+                          Colors.lime,
+                          Colors.yellow,
+                          Colors.amber,
+                          Colors.orange,
+                          Colors.deepOrange,
+                          Colors.brown,
+                          Colors.grey,
+                          Colors.blueGrey,
+                          Colors.black,
+                        ].map((color) {
+                          return GestureDetector(
+                            onTap: isSaving ? null : () {
+                              setState(() {
+                                selectedColor = color;
+                                colorValue = color.value;
+                              });
+                            },
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                                border: selectedColor == color
+                                    ? Border.all(color: Colors.black, width: 3)
+                                    : null,
+                                boxShadow: selectedColor == color
+                                    ? [BoxShadow(color: Colors.black26, blurRadius: 4)]
+                                    : null,
+                              ),
+                              child: selectedColor == color
+                                  ? const Icon(Icons.check, color: Colors.white, size: 20)
+                                  : null,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    // Icon picker section
+                    const Text(
+                      'Choose Icon:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 120,
+                      child: GridView.count(
+                        crossAxisCount: 5,
+                        shrinkWrap: true,
+                        childAspectRatio: 1,
+                        physics: const BouncingScrollPhysics(),
+                        children: [
+                          Icons.restaurant,
+                          Icons.shopping_cart,
+                          Icons.directions_car,
+                          Icons.local_gas_station,
+                          Icons.shopping_bag,
+                          Icons.movie,
+                          Icons.receipt,
+                          Icons.local_hospital,
+                          Icons.school,
+                          Icons.flight,
+                          Icons.face,
+                          Icons.category,
+                          Icons.home,
+                          Icons.work,
+                          Icons.pets,
+                          Icons.sports,
+                          Icons.music_note,
+                          Icons.book,
+                          Icons.phone_android,
+                          Icons.pool,
+                          Icons.fitness_center,
+                          Icons.brush,
+                          Icons.cake,
+                          Icons.coffee,
+                          Icons.wine_bar,
+                        ].map((icon) {
+                          return IconButton(
+                            icon: Icon(icon),
+                            color: selectedIcon == icon ? Colors.blue : Colors.grey,
+                            iconSize: 28,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: isSaving ? null : () {
+                              setState(() {
+                                selectedIcon = icon;
+                                iconName = icon.toString().split('.').last;
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    
+                    if (isSaving) ...[
+                      const SizedBox(height: 16),
+                      const Center(child: CircularProgressIndicator()),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
             actions: [
@@ -401,50 +412,102 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
   Future<void> _showAddSubcategoryDialog(int parentId) async {
     final nameController = TextEditingController();
     final parent = await DatabaseService().getCategoryById(parentId);
+    bool isSaving = false;
     
+    if (!mounted) return;
+
     return showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Subcategory'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(
-            labelText: 'Subcategory Name',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isNotEmpty) {
-                final subcategories = await DatabaseService().getSubcategories(parentId);
-                final newSubcategory = UserCategory(
-                  name: nameController.text,
-                  iconName: parent?.iconName ?? 'category',
-                  colorValue: parent?.colorValue ?? Colors.blue.value,
-                  isCustom: true,
-                  parentId: parentId,
-                  displayOrder: subcategories.length,
-                );
-                
-                await DatabaseService().insertCategory(newSubcategory);
-                if (mounted) {
-                  Navigator.pop(context);
-                  _loadCategories();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Subcategory added successfully')),
-                  );
-                }
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Add Subcategory'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Parent: ${parent?.name}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Subcategory Name',
+                    border: OutlineInputBorder(),
+                    hintText: 'e.g., Weekend Trip',
+                    prefixIcon: Icon(Icons.subdirectory_arrow_right),
+                  ),
+                  autofocus: true,
+                  enabled: !isSaving,
+                ),
+                if (isSaving) ...[
+                  const SizedBox(height: 16),
+                  const Center(child: CircularProgressIndicator()),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSaving ? null : () async {
+                  if (nameController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a subcategory name'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                    return;
+                  }
+
+                  setState(() {
+                    isSaving = true;
+                  });
+
+                  try {
+                    final subcategories = await DatabaseService().getSubcategories(parentId);
+                    final newSubcategory = UserCategory(
+                      name: nameController.text.trim(),
+                      iconName: parent?.iconName ?? 'category',
+                      colorValue: parent?.colorValue ?? Colors.blue.value,
+                      isCustom: true,
+                      parentId: parentId,
+                      displayOrder: subcategories.length,
+                    );
+                    
+                    await DatabaseService().insertCategory(newSubcategory);
+                    
+                    if (mounted) {
+                      Navigator.pop(context);
+                      _loadCategories();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Subcategory "${nameController.text}" added'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Add'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -488,7 +551,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
         ],
       ),
     );
-  }
+  } // _showEditCategoryDialog
 
   Future<void> _deleteCategory(UserCategory category) async {
     final inUse = await DatabaseService().isCategoryInUse(category.id!);
