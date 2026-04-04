@@ -160,3 +160,73 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+build/
+flutter_*.png
+ios/Flutter/flutter_export_environment.sh
+
+# Android
+android/local.properties
+android/app/src/main/java/io/flutter/plugins/
+android/.gradle/
+android/.idea/
+android/app/.classpath
+android/app/.project
+
+# iOS
+ios/Pods/
+ios/.generated/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_assets/
+ios/ServiceDefinitions.json
+ios/Runner/GeneratedPluginRegistrant.*
+
+# Linux
+linux/flutter/ephemeral/
+linux/CMakeCache.txt
+linux/CMakeFiles/
+linux/cmake_install.cmake
+linux/Makefile
+
+# Windows
+windows/flutter/ephemeral/
+windows/CMakeCache.txt
+windows/CMakeFiles/
+windows/cmake_install.cmake
+windows/CMakeSettings.json
+
+# macOS
+macos/Flutter/Flutter.framework
+macos/Flutter/Flutter.podspec
+macos/Flutter/ephemeral/
+macos/Pods/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.lock
+.DS_Store
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Exports
+*.csv
+*.json
+
+# Logs
+*.log
