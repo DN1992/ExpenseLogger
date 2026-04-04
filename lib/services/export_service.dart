@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:intl/intl.dart';
 import '../models/expense.dart';
 import '../services/database_service.dart';
 
@@ -10,33 +10,31 @@ class ExportService {
   factory ExportService() => _instance;
   ExportService._internal();
 
-  /// Export expenses to CSV file
-  Future<File?> exportToCSV() async {
+  /// Export expenses to CSV file with date range
+  Future<File?> exportToCSV({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
     try {
-      // Request storage permission for Android
-      if (Platform.isAndroid) {
-        var status = await Permission.storage.status;
-        if (!status.isGranted) {
-          status = await Permission.storage.request();
-          if (!status.isGranted) {
-            throw Exception('Storage permission denied');
-          }
-        }
-      }
-
-      // Get all expenses
+      // Get expenses based on date range
       final dbService = DatabaseService();
-      final expenses = await dbService.getAllExpenses();
+      List<Expense> expenses;
+      
+      if (startDate != null && endDate != null) {
+        expenses = await dbService.getExpensesByDateRange(startDate, endDate);
+      } else {
+        expenses = await dbService.getAllExpenses();
+      }
       
       if (expenses.isEmpty) {
-        throw Exception('No expenses to export');
+        throw Exception('No expenses to export in the selected date range');
       }
 
       // Create CSV content
       StringBuffer csvBuffer = StringBuffer();
       
       // Write headers
-      csvBuffer.writeln('ID,Title,Amount,Category,Subcategory,Date,Note,Receipt Path');
+      csvBuffer.writeln('ID,Title,Amount,Category,Subcategory,Date,Tags');
       
       // Write data rows
       for (var expense in expenses) {
@@ -44,8 +42,7 @@ class ExportService {
         String title = _escapeCSV(expense.title);
         String category = _escapeCSV(expense.category);
         String subcategory = _escapeCSV(expense.subcategory ?? '');
-        String note = _escapeCSV(expense.note ?? '');
-        String receiptPath = _escapeCSV(expense.receiptPath ?? '');
+        String tags = _escapeCSV(expense.tags.join('; '));
         
         csvBuffer.writeln(
           '${expense.id ?? ''},'
@@ -54,43 +51,12 @@ class ExportService {
           '$category,'
           '$subcategory,'
           '${_formatDate(expense.date)},'
-          '$note,'
-          '$receiptPath'
+          '$tags'
         );
       }
 
       // Get download directory
-      Directory? downloadDir;
-      
-      if (Platform.isLinux) {
-        // Linux: use ~/Downloads
-        final homeDir = Platform.environment['HOME'] ?? '.';
-        downloadDir = Directory('$homeDir/Downloads');
-        if (!await downloadDir.exists()) {
-          await downloadDir.create(recursive: true);
-        }
-      } else if (Platform.isAndroid) {
-        // Android: use Downloads folder
-        downloadDir = Directory('/storage/emulated/0/Download');
-        if (!await downloadDir.exists()) {
-          // Fallback to app directory
-          downloadDir = await getApplicationDocumentsDirectory();
-        }
-      } else {
-        // Other platforms
-        downloadDir = await getApplicationDocumentsDirectory();
-      }
-
-      // Create filename with timestamp
-      final timestamp = DateTime.now().toString().replaceAll(':', '-').split('.')[0];
-      final fileName = 'expenses_$timestamp.csv';
-      final filePath = '${downloadDir.path}/$fileName';
-      
-      // Write file
-      final file = File(filePath);
-      await file.writeAsString(csvBuffer.toString());
-      
-      print('CSV exported to: $filePath');
+      final file = await _saveFile(csvBuffer.toString(), 'csv', startDate, endDate);
       return file;
       
     } catch (e) {
@@ -99,26 +65,24 @@ class ExportService {
     }
   }
 
-  /// Export expenses to JSON file
-  Future<File?> exportToJSON() async {
+  /// Export expenses to JSON file with date range
+  Future<File?> exportToJSON({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
     try {
-      // Request storage permission for Android
-      if (Platform.isAndroid) {
-        var status = await Permission.storage.status;
-        if (!status.isGranted) {
-          status = await Permission.storage.request();
-          if (!status.isGranted) {
-            throw Exception('Storage permission denied');
-          }
-        }
-      }
-
-      // Get all expenses
+      // Get expenses based on date range
       final dbService = DatabaseService();
-      final expenses = await dbService.getAllExpenses();
+      List<Expense> expenses;
+      
+      if (startDate != null && endDate != null) {
+        expenses = await dbService.getExpensesByDateRange(startDate, endDate);
+      } else {
+        expenses = await dbService.getAllExpenses();
+      }
       
       if (expenses.isEmpty) {
-        throw Exception('No expenses to export');
+        throw Exception('No expenses to export in the selected date range');
       }
 
       // Convert expenses to JSON-serializable maps
@@ -130,8 +94,7 @@ class ExportService {
           'category': e.category,
           'subcategory': e.subcategory,
           'date': e.date.toIso8601String(),
-          'note': e.note,
-          'receiptPath': e.receiptPath,
+          'tags': e.tags,
         };
       }).toList();
 
@@ -139,33 +102,7 @@ class ExportService {
       String jsonString = JsonEncoder.withIndent('  ').convert(jsonList);
 
       // Get download directory
-      Directory? downloadDir;
-      
-      if (Platform.isLinux) {
-        final homeDir = Platform.environment['HOME'] ?? '.';
-        downloadDir = Directory('$homeDir/Downloads');
-        if (!await downloadDir.exists()) {
-          await downloadDir.create(recursive: true);
-        }
-      } else if (Platform.isAndroid) {
-        downloadDir = Directory('/storage/emulated/0/Download');
-        if (!await downloadDir.exists()) {
-          downloadDir = await getApplicationDocumentsDirectory();
-        }
-      } else {
-        downloadDir = await getApplicationDocumentsDirectory();
-      }
-
-      // Create filename with timestamp
-      final timestamp = DateTime.now().toString().replaceAll(':', '-').split('.')[0];
-      final fileName = 'expenses_$timestamp.json';
-      final filePath = '${downloadDir.path}/$fileName';
-      
-      // Write file
-      final file = File(filePath);
-      await file.writeAsString(jsonString);
-      
-      print('JSON exported to: $filePath');
+      final file = await _saveFile(jsonString, 'json', startDate, endDate);
       return file;
       
     } catch (e) {
@@ -174,23 +111,93 @@ class ExportService {
     }
   }
 
-  /// Share the exported file
-  Future<void> shareFile(File file) async {
-    // You can integrate with share_plus package here
-    print('File ready to share: ${file.path}');
+  /// Get summary statistics for export
+  Future<Map<String, dynamic>> getExportSummary({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final dbService = DatabaseService();
+    List<Expense> expenses;
+    
+    if (startDate != null && endDate != null) {
+      expenses = await dbService.getExpensesByDateRange(startDate, endDate);
+    } else {
+      expenses = await dbService.getAllExpenses();
+    }
+    
+    if (expenses.isEmpty) {
+      return {
+        'count': 0,
+        'total': 0.0,
+        'categories': {},
+      };
+    }
+    
+    final total = expenses.fold(0.0, (sum, e) => sum + e.amount);
+    final categories = <String, double>{};
+    
+    for (var expense in expenses) {
+      categories[expense.category] = (categories[expense.category] ?? 0) + expense.amount;
+    }
+    
+    return {
+      'count': expenses.length,
+      'total': total,
+      'categories': categories,
+    };
   }
 
-  /// Escape CSV fields (wrap in quotes if contains comma or quotes)
+  Future<File> _saveFile(String content, String format, DateTime? startDate, DateTime? endDate) async {
+    // Get download directory
+    Directory? downloadDir;
+    
+    if (Platform.isLinux) {
+      final homeDir = Platform.environment['HOME'] ?? '.';
+      downloadDir = Directory('$homeDir/Downloads');
+      if (!await downloadDir.exists()) {
+        await downloadDir.create(recursive: true);
+      }
+    } else if (Platform.isAndroid) {
+      downloadDir = Directory('/storage/emulated/0/Download');
+      if (!await downloadDir.exists()) {
+        downloadDir = await getApplicationDocumentsDirectory();
+      }
+    } else {
+      downloadDir = await getApplicationDocumentsDirectory();
+    }
+
+    // Create filename with date range
+    String dateRangeStr;
+    if (startDate != null && endDate != null) {
+      dateRangeStr = '${_formatDateForFilename(startDate)}_to_${_formatDateForFilename(endDate)}';
+    } else {
+      dateRangeStr = 'all_time';
+    }
+    
+    final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final fileName = 'expenses_${dateRangeStr}_$timestamp.$format';
+    final filePath = '${downloadDir.path}/$fileName';
+    
+    // Write file
+    final file = File(filePath);
+    await file.writeAsString(content);
+    
+    print('File exported to: $filePath');
+    return file;
+  }
+
   String _escapeCSV(String field) {
     if (field.contains(',') || field.contains('"') || field.contains('\n')) {
-      // Replace double quotes with two double quotes
       return '"${field.replaceAll('"', '""')}"';
     }
     return field;
   }
 
-  /// Format date for CSV
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+  
+  String _formatDateForFilename(DateTime date) {
+    return '${date.year}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}';
   }
 }

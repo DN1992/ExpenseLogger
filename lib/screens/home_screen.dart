@@ -9,6 +9,7 @@ import '../widgets/subcategory_chart.dart';
 import 'add_expense_screen.dart';
 import 'category_management_screen.dart';
 import 'export_screen.dart';
+import 'export_config_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -113,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const ExportScreen(),
+                  builder: (context) => const ExportConfigScreen(),
                 ),
               );
             },
