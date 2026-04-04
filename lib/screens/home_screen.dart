@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/database_service.dart';
+import '../services/export_service.dart';
 import '../models/expense.dart';
 import '../widgets/expense_chart.dart';
 import '../widgets/expense_list.dart';
 import '../widgets/subcategory_chart.dart';
 import 'add_expense_screen.dart';
 import 'category_management_screen.dart';
+import 'export_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -81,6 +83,18 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadExpenses,
+          ),
+          IconButton(
+            icon: const Icon(Icons.import_export),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ExportScreen(),
+                ),
+              );
+            },
+            tooltip: 'Export Data',
           ),
         ],
       ),
