@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:image_picker/image_picker.dart';
 import '../models/expense.dart';
 import '../models/user_category.dart';
 import '../services/database_service.dart';
@@ -17,14 +16,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
-  final _noteController = TextEditingController();
 
   List<UserCategory> _mainCategories = [];
   Map<int, List<UserCategory>> _subcategories = {};
   String? _selectedCategory;
   String? _selectedSubcategory;
   DateTime _selectedDate = DateTime.now();
-  String? _receiptPath;
   List<String> _tags = [];
   bool _isSaving = false;
   bool _loadingCategories = true;
@@ -321,66 +318,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Note Field
-                  TextFormField(
-                    controller: _noteController,
-                    decoration: const InputDecoration(
-                      labelText: 'Note (Optional)',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.note),
-                    ),
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Receipt Attachment
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Receipt',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _receiptPath != null
-                                      ? 'Receipt attached'
-                                      : 'No receipt',
-                                  style: TextStyle(
-                                    color: _receiptPath != null
-                                        ? Colors.green
-                                        : Colors.grey,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.camera_alt),
-                                onPressed: _takePhoto,
-                                tooltip: 'Take photo',
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.photo_library),
-                                onPressed: _pickImage,
-                                tooltip: 'Choose from gallery',
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Tags Input
+                  // Tags Section
                   FutureBuilder<List<String>>(
                     future: _getSuggestedTags(),
                     builder: (context, snapshot) {
@@ -426,62 +364,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  Future<void> _takePhoto() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 85,
-      );
-      if (image != null) {
-        setState(() {
-          _receiptPath = image.path;
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Photo added successfully')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error taking photo: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _pickImage() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 85,
-      );
-      if (image != null) {
-        setState(() {
-          _receiptPath = image.path;
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Image added successfully')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking image: $e')),
-        );
-      }
-    }
-  }
-
   Future<void> _saveExpense() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -497,8 +379,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           category: _selectedCategory ?? _mainCategories.first.name,
           subcategory: _selectedSubcategory,
           date: _selectedDate,
-          note: _noteController.text.isNotEmpty ? _noteController.text.trim() : null,
-          receiptPath: _receiptPath,
+          note: null, // No note
           tags: _tags,
         );
 
@@ -542,7 +423,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void dispose() {
     _titleController.dispose();
     _amountController.dispose();
-    _noteController.dispose();
     super.dispose();
   }
 }
