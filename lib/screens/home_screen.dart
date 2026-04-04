@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/database_service.dart';
-import '../services/export_service.dart';
 import '../models/expense.dart';
+import '../models/user_category.dart';
 import '../widgets/expense_chart.dart';
 import '../widgets/expense_list.dart';
 import '../widgets/subcategory_chart.dart';
@@ -21,19 +21,59 @@ class _HomeScreenState extends State<HomeScreen> {
   late DatabaseService _databaseService;
   List<Expense> _expenses = [];
   bool _isLoading = true;
-  String? _selectedCategory; // Add this for subcategory chart selection
+  String? _selectedCategory;
+  Map<String, Color> _categoryColors = {}; // Add this
 
   @override
   void initState() {
     super.initState();
     _databaseService = DatabaseService();
     _loadExpenses();
+    _loadCategoryColors();
+  }
+
+  Future<void> _loadCategoryColors() async {
+    try {
+      final dbService = DatabaseService();
+      final categories = await dbService.getAllMainCategories();
+      
+      final Map<String, Color> colors = {};
+      for (var category in categories) {
+        colors[category.name] = Color(category.colorValue);
+      }
+      
+      setState(() {
+        _categoryColors = colors;
+      });
+    } catch (e) {
+      print('Error loading category colors: $e');
+      // Set default colors if loading fails
+      setState(() {
+        _categoryColors = {
+          'Food & Dining': Colors.orange,
+          'Transportation': Colors.blue,
+          'Shopping': Colors.purple,
+          'Entertainment': Colors.pink,
+          'Bills & Utilities': Colors.red,
+          'Healthcare': Colors.green,
+          'Education': Colors.teal,
+          'Travel': Colors.indigo,
+          'Personal Care': Colors.deepPurple,
+          'Other': Colors.grey,
+        };
+      });
+    }
   }
 
   Future<void> _loadExpenses() async {
     setState(() => _isLoading = true);
     try {
+      // Load expenses
       final expenses = await _databaseService.getAllExpenses();
+      
+      // Load category colors (important for chart colors)
+      await _loadCategoryColors();
+      
       setState(() {
         _expenses = expenses;
         _isLoading = false;
@@ -55,7 +95,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return _expenses.fold(0, (sum, expense) => sum + expense.amount);
   }
 
-  // Helper method to get unique categories
   List<String> _getUniqueCategories() {
     return _expenses.map((e) => e.category).toSet().toList()..sort();
   }
@@ -69,22 +108,6 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Expense Log'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.category),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CategoryManagementScreen(),
-                ),
-              ).then((_) => _loadExpenses()); // Refresh when returning
-            },
-            tooltip: 'Manage Categories',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadExpenses,
-          ),
-          IconButton(
             icon: const Icon(Icons.import_export),
             onPressed: () {
               Navigator.push(
@@ -95,6 +118,25 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
             tooltip: 'Export Data',
+          ),
+          IconButton(
+            icon: const Icon(Icons.category),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CategoryManagementScreen(),
+                ),
+              ).then((_) {
+                _loadExpenses();
+                _loadCategoryColors(); // Reload colors when returning
+              });
+            },
+            tooltip: 'Manage Categories',
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadExpenses,
           ),
         ],
       ),
@@ -146,7 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   
-                  // Main Category Chart (Pie Chart)
+                  // Main Category Chart
                   if (_expenses.isNotEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
@@ -193,9 +235,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                       child: Text('All Categories'),
                                     ),
                                     ...uniqueCategories.map((category) {
+                                      final color = _categoryColors[category] ?? Colors.grey;
                                       return DropdownMenuItem(
                                         value: category,
-                                        child: Text(category),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 12,
+                                              height: 12,
+                                              decoration: BoxDecoration(
+                                                color: color,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(category),
+                                          ],
+                                        ),
                                       );
                                     }),
                                   ],
@@ -212,7 +268,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   
-                  // Subcategory Chart (only shown when a category is selected)
+                  // Subcategory Chart
                   if (_selectedCategory != null && _expenses.any((e) => e.category == _selectedCategory))
                     SliverToBoxAdapter(
                       child: SubcategoryChart(
@@ -232,10 +288,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   
-                  // Expense List
+                  // Expense List - Pass category colors here
                   ExpenseList(
                     expenses: _expenses,
                     onDelete: _deleteExpense,
+                    categoryColors: _categoryColors, // Pass the colors map
                   ),
                 ],
               ),
@@ -284,6 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (result == true) {
       _loadExpenses();
+      _loadCategoryColors();
     }
   }
 }

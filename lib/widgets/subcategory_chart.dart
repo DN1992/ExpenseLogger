@@ -31,7 +31,6 @@ class _SubcategoryChartState extends State<SubcategoryChart> {
 
   Future<void> _loadCategoryData() async {
     try {
-      // Get category color from database
       final dbService = DatabaseService();
       final mainCategories = await dbService.getAllMainCategories();
       
@@ -64,16 +63,13 @@ class _SubcategoryChartState extends State<SubcategoryChart> {
   void _calculateSubcategoryTotals() {
     Map<String, double> totals = {};
     
-    // Filter expenses for this category
     final categoryExpenses = widget.expenses.where((e) => e.category == widget.category);
     
-    // Sum amounts by subcategory
     for (var expense in categoryExpenses) {
       String key = expense.subcategory ?? 'Uncategorized';
       totals[key] = (totals[key] ?? 0) + expense.amount;
     }
     
-    // Sort by amount (highest first)
     final sortedEntries = totals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     
@@ -83,10 +79,11 @@ class _SubcategoryChartState extends State<SubcategoryChart> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
+      return const Card(
+        margin: EdgeInsets.all(16),
         child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: CircularProgressIndicator(),
+          padding: EdgeInsets.all(40),
+          child: Center(child: CircularProgressIndicator()),
         ),
       );
     }
@@ -177,11 +174,6 @@ class _SubcategoryChartState extends State<SubcategoryChart> {
                   sections: _getPieSections(),
                   sectionsSpace: 2,
                   centerSpaceRadius: 40,
-                  pieTouchData: PieTouchData(
-                    touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                      // Handle touch events if needed
-                    },
-                  ),
                 ),
               ),
             ),
@@ -269,7 +261,7 @@ class _SubcategoryChartState extends State<SubcategoryChart> {
       
       return PieChartSectionData(
         value: entry.value,
-        title: '${percentage.toStringAsFixed(1)}%',
+        title: percentage > 8 ? '${percentage.toStringAsFixed(1)}%' : '',
         radius: 50,
         color: color,
         titleStyle: const TextStyle(
@@ -278,19 +270,15 @@ class _SubcategoryChartState extends State<SubcategoryChart> {
           color: Colors.white,
         ),
         titlePositionPercentageOffset: 0.6,
+        showTitle: percentage > 8,
       );
     }).toList();
   }
 
   Color _getSubcategoryColor(int index) {
-    // Generate different shades of the main category color
-    final baseColor = _categoryColor;
-    final hsl = HSLColor.fromColor(baseColor);
-    
-    // Vary lightness and saturation based on index
-    final lightness = (0.3 + (index * 0.1)).clamp(0.3, 0.8);
-    final saturation = (0.5 + (index * 0.05)).clamp(0.5, 0.9);
-    
+    final hsl = HSLColor.fromColor(_categoryColor);
+    final lightness = (0.35 + (index * 0.08)).clamp(0.35, 0.75);
+    final saturation = (0.55 + (index * 0.05)).clamp(0.55, 0.85);
     return hsl.withLightness(lightness).withSaturation(saturation).toColor();
   }
 }

@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/expense.dart';
-import '../models/categories.dart'; 
 
 class ExpenseList extends StatelessWidget {
   final List<Expense> expenses;
   final Function(Expense) onDelete;
+  final Map<String, Color> categoryColors; // Add this parameter
 
   const ExpenseList({
     super.key,
     required this.expenses,
     required this.onDelete,
+    required this.categoryColors, // Make it required
   });
 
   @override
@@ -51,6 +52,8 @@ class ExpenseList extends StatelessWidget {
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           final expense = expenses[index];
+          final categoryColor = categoryColors[expense.category] ?? Colors.grey;
+          
           return Dismissible(
             key: Key(expense.id.toString()),
             direction: DismissDirection.endToStart,
@@ -73,9 +76,9 @@ class ExpenseList extends StatelessWidget {
               ),
               child: ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: _getCategoryColor(expense.category),
+                  backgroundColor: categoryColor,
                   child: Text(
-                    expense.category[0],
+                    expense.category[0].toUpperCase(),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -86,14 +89,10 @@ class ExpenseList extends StatelessWidget {
                   expense.title,
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
-                // Inside the ListTile subtitle section:
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Show main category
                     Text(expense.category),
-                    
-                    // Show subcategory if it exists
                     if (expense.subcategory != null)
                       Text(
                         '  • ${expense.subcategory}',
@@ -103,8 +102,6 @@ class ExpenseList extends StatelessWidget {
                           color: Colors.grey,
                         ),
                       ),
-                    
-                    // Show date
                     Text(
                       DateFormat('MMM dd, yyyy').format(expense.date),
                       style: const TextStyle(fontSize: 12),
@@ -129,9 +126,5 @@ class ExpenseList extends StatelessWidget {
         childCount: expenses.length,
       ),
     );
-  }
-
-  Color _getCategoryColor(String category) {
-    return getCategoryColor(category);
   }
 }
