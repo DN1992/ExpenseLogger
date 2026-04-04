@@ -11,6 +11,7 @@ import 'category_management_screen.dart';
 import 'export_config_screen.dart';
 import 'summary_screen.dart';
 import '../widgets/subcategory_chart.dart';
+import '../screens/edit_expense_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -386,6 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ExpenseList(
                     expenses: _filteredExpenses,
                     onDelete: _deleteExpense,
+                    onEdit: _editExpense, // Add this line
                     categoryColors: _categoryColors,
                   ),
                 ],
@@ -432,6 +434,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
+    );
+    if (result == true) {
+      _refreshAllData();
+    }
+  }
+  Future<void> _editExpense(Expense expense) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditExpenseScreen(expense: expense),
+      ),
     );
     if (result == true) {
       _refreshAllData();

@@ -5,13 +5,15 @@ import '../models/expense.dart';
 class ExpenseList extends StatelessWidget {
   final List<Expense> expenses;
   final Function(Expense) onDelete;
-  final Map<String, Color> categoryColors; // Add this parameter
+  final Function(Expense) onEdit; // Add this callback
+  final Map<String, Color> categoryColors;
 
   const ExpenseList({
     super.key,
     required this.expenses,
     required this.onDelete,
-    required this.categoryColors, // Make it required
+    required this.onEdit, // Make it required
+    required this.categoryColors,
   });
 
   @override
@@ -69,83 +71,85 @@ class ExpenseList extends StatelessWidget {
             onDismissed: (direction) {
               onDelete(expense);
             },
-            child: Card(
-              margin: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 4,
-              ),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: categoryColor,
-                  child: Text(
-                    expense.category[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+            child: GestureDetector(
+              onLongPress: () {
+                // Trigger edit on long press
+                onEdit(expense);
+              },
+              child: Card(
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: categoryColor,
+                    child: Text(
+                      expense.category[0].toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                title: Text(
-                  expense.title,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-                // In the subtitle section, add tags display after the date
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(expense.category),
-                    if (expense.subcategory != null)
+                  title: Text(
+                    expense.title,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(expense.category),
+                      if (expense.subcategory != null)
+                        Text(
+                          '  • ${expense.subcategory}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey,
+                          ),
+                        ),
                       Text(
-                        '  • ${expense.subcategory}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontStyle: FontStyle.italic,
-                          color: Colors.grey,
-                        ),
+                        DateFormat('MMM dd, yyyy').format(expense.date),
+                        style: const TextStyle(fontSize: 12),
                       ),
-                    Text(
-                      DateFormat('MMM dd, yyyy').format(expense.date),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    // Add tags display
-                    if (expense.tags.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Wrap(
-                          spacing: 4,
-                          runSpacing: 2,
-                          children: expense.tags.map((tag) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.blue.shade200),
-                              ),
-                              child: Text(
-                                tag,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.blue.shade700,
+                      // Tags display
+                      if (expense.tags.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Wrap(
+                            spacing: 4,
+                            runSpacing: 2,
+                            children: expense.tags.map((tag) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.blue.shade200),
                                 ),
-                              ),
-                            );
-                          }).toList(),
+                                child: Text(
+                                  tag,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
                         ),
-                      ),
-                  ],
-                ),
-                trailing: Text(
-                  '\$${expense.amount.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
+                    ],
+                  ),
+                  trailing: Text(
+                    '\$${expense.amount.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
                   ),
                 ),
-                onTap: () {
-                  // Navigate to expense detail screen
-                },
               ),
             ),
           );
