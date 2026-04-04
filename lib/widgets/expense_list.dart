@@ -142,7 +142,7 @@ class ExpenseList extends StatelessWidget {
                     ],
                   ),
                   trailing: Text(
-                    '\$${expense.amount.toStringAsFixed(2)}',
+                    '€${expense.amount.toStringAsFixed(2)}',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,

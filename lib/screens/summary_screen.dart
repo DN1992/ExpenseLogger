@@ -230,7 +230,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       // Total Expenses Card
                       _buildSummaryCard(
                         title: 'Total Expenses',
-                        value: '\$${_totalExpenses.toStringAsFixed(2)}',
+                        value: '€${_totalExpenses.toStringAsFixed(2)}',
                         icon: Icons.attach_money,
                         color: Colors.green,
                         subtitle: '$_transactionCount transactions',
@@ -243,7 +243,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           Expanded(
                             child: _buildSummaryCard(
                               title: 'Average/Day',
-                              value: '\$${_averagePerDay.toStringAsFixed(2)}',
+                              value: '€${_averagePerDay.toStringAsFixed(2)}',
                               icon: Icons.calendar_today,
                               color: Colors.blue,
                               small: true,
@@ -253,7 +253,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           Expanded(
                             child: _buildSummaryCard(
                               title: 'Average/Transaction',
-                              value: '\$${_averagePerTransaction.toStringAsFixed(2)}',
+                              value: '€${_averagePerTransaction.toStringAsFixed(2)}',
                               icon: Icons.receipt,
                               color: Colors.orange,
                               small: true,
@@ -266,7 +266,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       
                       _buildSummaryCard(
                         title: 'Highest Expense',
-                        value: '\$${_highestExpense.toStringAsFixed(2)}',
+                        value: '€${_highestExpense.toStringAsFixed(2)}',
                         icon: Icons.trending_up,
                         color: Colors.red,
                         subtitle: _highestExpenseTitle,
@@ -386,7 +386,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           ),
                         ),
                         Text(
-                          '\$${entry.value.toStringAsFixed(2)}',
+                          '€${entry.value.toStringAsFixed(2)}',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(width: 8),

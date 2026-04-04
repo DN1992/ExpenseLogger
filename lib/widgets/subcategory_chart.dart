@@ -158,7 +158,7 @@ class _SubcategoryChartState extends State<SubcategoryChart> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Total: \$${totalAmount.toStringAsFixed(2)}',
+              'Total: €${totalAmount.toStringAsFixed(2)}',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey.shade600,
@@ -217,7 +217,7 @@ class _SubcategoryChartState extends State<SubcategoryChart> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '\$${entry.value.toStringAsFixed(2)}',
+                      '€${entry.value.toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                       ),

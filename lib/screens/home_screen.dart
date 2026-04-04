@@ -223,7 +223,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           Text(
-                            '\$${_totalExpenses.toStringAsFixed(2)}',
+                            '€${_totalExpenses.toStringAsFixed(2)}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 40,

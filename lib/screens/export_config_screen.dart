@@ -87,7 +87,7 @@ class _ExportConfigScreenState extends State<ExportConfigScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Exported ${summary['count']} expenses totaling \$${summary['total'].toStringAsFixed(2)}',
+                'Exported ${summary['count']} expenses totaling €${summary['total'].toStringAsFixed(2)}',
               ),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 4),

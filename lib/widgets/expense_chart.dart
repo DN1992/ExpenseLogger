@@ -100,7 +100,7 @@ class _ExpenseChartState extends State<ExpenseChart> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Total: \$${totalAmount.toStringAsFixed(2)}',
+              'Total: €${totalAmount.toStringAsFixed(2)}',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey.shade600,
@@ -153,7 +153,7 @@ class _ExpenseChartState extends State<ExpenseChart> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '\$${entry.value.toStringAsFixed(2)}',
+                        '€${entry.value.toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
