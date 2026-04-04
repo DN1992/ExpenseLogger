@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/expense.dart';
 import '../models/user_category.dart';
 import '../services/database_service.dart';
+import '../widgets/tag_input.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
@@ -19,11 +20,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _noteController = TextEditingController();
 
   List<UserCategory> _mainCategories = [];
-  final Map<int, List<UserCategory>> _subcategories = {};
+  Map<int, List<UserCategory>> _subcategories = {};
   String? _selectedCategory;
   String? _selectedSubcategory;
   DateTime _selectedDate = DateTime.now();
   String? _receiptPath;
+  List<String> _tags = [];
   bool _isSaving = false;
   bool _loadingCategories = true;
 
@@ -51,11 +53,30 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       }
     } catch (e) {
       print('Error loading categories: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading categories: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading categories: $e')),
+        );
+      }
     } finally {
-      setState(() => _loadingCategories = false);
+      if (mounted) {
+        setState(() => _loadingCategories = false);
+      }
+    }
+  }
+
+  Future<List<String>> _getSuggestedTags() async {
+    try {
+      final dbService = DatabaseService();
+      final expenses = await dbService.getAllExpenses();
+      final allTags = <String>{};
+      for (var expense in expenses) {
+        allTags.addAll(expense.tags);
+      }
+      return allTags.toList()..sort();
+    } catch (e) {
+      print('Error getting suggested tags: $e');
+      return [];
     }
   }
 
@@ -63,13 +84,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (_selectedCategory == null) return [];
     final currentCategory = _mainCategories.firstWhere(
       (c) => c.name == _selectedCategory,
-      orElse: () => _mainCategories.isNotEmpty ? _mainCategories.first : UserCategory(
-        name: '',
-        iconName: 'category',
-        colorValue: Colors.grey.value,
-        isCustom: false,
-        displayOrder: 0,
-      ),
+      orElse: () => _mainCategories.isNotEmpty 
+          ? _mainCategories.first 
+          : UserCategory(
+              name: '',
+              iconName: 'category',
+              colorValue: Colors.grey.value,
+              isCustom: false,
+              displayOrder: 0,
+            ),
     );
     return _subcategories[currentCategory.id] ?? [];
   }
@@ -96,6 +119,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       case 'book': return Icons.book;
       case 'phone_android': return Icons.phone_android;
       case 'pool': return Icons.pool;
+      case 'fitness_center': return Icons.fitness_center;
+      case 'brush': return Icons.brush;
+      case 'cake': return Icons.cake;
+      case 'coffee': return Icons.coffee;
+      case 'wine_bar': return Icons.wine_bar;
       default: return Icons.category;
     }
   }
@@ -274,14 +302,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.grey.shade600),
                           ),
-                          const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pushNamed(context, '/categories');
-                            },
-                            icon: const Icon(Icons.category),
-                            label: const Text('Manage Categories'),
-                          ),
                         ],
                       ),
                     ),
@@ -357,6 +377,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         ],
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Tags Input
+                  FutureBuilder<List<String>>(
+                    future: _getSuggestedTags(),
+                    builder: (context, snapshot) {
+                      final suggestedTags = snapshot.data ?? [];
+                      return TagInput(
+                        tags: _tags,
+                        onTagsChanged: (newTags) {
+                          setState(() {
+                            _tags = newTags;
+                          });
+                        },
+                        suggestedTags: suggestedTags,
+                      );
+                    },
                   ),
                   const SizedBox(height: 24),
 
@@ -461,9 +499,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           date: _selectedDate,
           note: _noteController.text.isNotEmpty ? _noteController.text.trim() : null,
           receiptPath: _receiptPath,
+          tags: _tags,
         );
 
-        print('Saving expense: ${expense.title}, Category: ${expense.category}, Subcategory: ${expense.subcategory}');
+        print('Saving expense: ${expense.title}, Category: ${expense.category}, Tags: ${expense.tags}');
 
         final databaseService = DatabaseService();
         final id = await databaseService.insertExpense(expense);

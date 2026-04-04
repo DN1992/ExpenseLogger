@@ -89,6 +89,7 @@ class ExpenseList extends StatelessWidget {
                   expense.title,
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
+                // In the subtitle section, add tags display after the date
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -106,6 +107,32 @@ class ExpenseList extends StatelessWidget {
                       DateFormat('MMM dd, yyyy').format(expense.date),
                       style: const TextStyle(fontSize: 12),
                     ),
+                    // Add tags display
+                    if (expense.tags.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 2,
+                          children: expense.tags.map((tag) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.blue.shade200),
+                              ),
+                              child: Text(
+                                tag,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.blue.shade700,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
                   ],
                 ),
                 trailing: Text(
