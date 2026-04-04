@@ -5,11 +5,12 @@ import '../models/expense.dart';
 import '../models/user_category.dart';
 import '../widgets/expense_chart.dart';
 import '../widgets/expense_list.dart';
-import '../widgets/subcategory_chart.dart';
+import '../widgets/time_period_selector.dart';
 import 'add_expense_screen.dart';
 import 'category_management_screen.dart';
-import 'export_screen.dart';
 import 'export_config_screen.dart';
+import 'summary_screen.dart';
+import '../widgets/subcategory_chart.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,21 +21,31 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late DatabaseService _databaseService;
-  List<Expense> _expenses = [];
+  List<Expense> _allExpenses = [];
+  List<Expense> _filteredExpenses = [];
   bool _isLoading = true;
   String? _selectedCategory;
-  Map<String, Color> _categoryColors = {}; // Add this
+  Map<String, Color> _categoryColors = {};
+  
+  // Time period filter for chart
+  TimePeriod _selectedPeriod = TimePeriod.monthly;
+  DateTime? _customStartDate;
+  DateTime? _customEndDate;
 
   @override
   void initState() {
     super.initState();
     _databaseService = DatabaseService();
-    _loadExpenses();
-    _loadCategoryColors();
+    _refreshAllData();
   }
 
-  Future<void> _loadCategoryColors() async {
+  Future<void> _refreshAllData() async {
+    setState(() => _isLoading = true);
     try {
+      // Load expenses
+      final expenses = await _databaseService.getAllExpenses();
+      
+      // Load category colors
       final dbService = DatabaseService();
       final categories = await dbService.getAllMainCategories();
       
@@ -44,60 +55,90 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       
       setState(() {
+        _allExpenses = expenses;
         _categoryColors = colors;
       });
-    } catch (e) {
-      print('Error loading category colors: $e');
-      // Set default colors if loading fails
-      setState(() {
-        _categoryColors = {
-          'Food & Dining': Colors.orange,
-          'Transportation': Colors.blue,
-          'Shopping': Colors.purple,
-          'Entertainment': Colors.pink,
-          'Bills & Utilities': Colors.red,
-          'Healthcare': Colors.green,
-          'Education': Colors.teal,
-          'Travel': Colors.indigo,
-          'Personal Care': Colors.deepPurple,
-          'Other': Colors.grey,
-        };
-      });
-    }
-  }
-
-  Future<void> _loadExpenses() async {
-    setState(() => _isLoading = true);
-    try {
-      // Load expenses
-      final expenses = await _databaseService.getAllExpenses();
       
-      // Load category colors (important for chart colors)
-      await _loadCategoryColors();
+      // Apply time filter
+      _applyTimeFilter();
       
       setState(() {
-        _expenses = expenses;
         _isLoading = false;
-        // Reset selected category if it no longer exists
-        if (_selectedCategory != null && 
-            !_expenses.any((e) => e.category == _selectedCategory)) {
-          _selectedCategory = null;
-        }
       });
     } catch (e) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading expenses: $e')),
+        SnackBar(content: Text('Error loading data: $e')),
       );
     }
   }
 
+  void _applyTimeFilter() {
+    DateTime startDate;
+    DateTime endDate = DateTime.now();
+    
+    switch (_selectedPeriod) {
+      case TimePeriod.daily:
+        startDate = DateTime(endDate.year, endDate.month, endDate.day);
+        endDate = startDate.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
+        break;
+      case TimePeriod.weekly:
+        startDate = endDate.subtract(Duration(days: endDate.weekday - 1));
+        startDate = DateTime(startDate.year, startDate.month, startDate.day);
+        endDate = startDate.add(const Duration(days: 7)).subtract(const Duration(seconds: 1));
+        break;
+      case TimePeriod.monthly:
+        startDate = DateTime(endDate.year, endDate.month, 1);
+        endDate = DateTime(endDate.year, endDate.month + 1, 0);
+        break;
+      case TimePeriod.yearly:
+        startDate = DateTime(endDate.year, 1, 1);
+        endDate = DateTime(endDate.year, 12, 31);
+        break;
+      case TimePeriod.custom:
+        if (_customStartDate != null && _customEndDate != null) {
+          startDate = _customStartDate!;
+          endDate = _customEndDate!;
+        } else {
+          startDate = DateTime(2020, 1, 1);
+        }
+        break;
+    }
+    
+    _filteredExpenses = _allExpenses.where((e) {
+      return e.date.isAfter(startDate.subtract(const Duration(days: 1))) && 
+             e.date.isBefore(endDate.add(const Duration(days: 1)));
+    }).toList();
+    
+    setState(() {});
+  }
+
+  String _getPeriodLabel() {
+    switch (_selectedPeriod) {
+      case TimePeriod.daily:
+        return DateFormat('MMMM dd, yyyy').format(DateTime.now());
+      case TimePeriod.weekly:
+        final start = DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1));
+        final end = start.add(const Duration(days: 6));
+        return '${DateFormat('MMM dd').format(start)} - ${DateFormat('MMM dd, yyyy').format(end)}';
+      case TimePeriod.monthly:
+        return DateFormat('MMMM yyyy').format(DateTime.now());
+      case TimePeriod.yearly:
+        return DateFormat('yyyy').format(DateTime.now());
+      case TimePeriod.custom:
+        if (_customStartDate != null && _customEndDate != null) {
+          return '${DateFormat('MMM dd, yyyy').format(_customStartDate!)} - ${DateFormat('MMM dd, yyyy').format(_customEndDate!)}';
+        }
+        return 'Custom Range';
+    }
+  }
+
   double get _totalExpenses {
-    return _expenses.fold(0, (sum, expense) => sum + expense.amount);
+    return _filteredExpenses.fold(0, (sum, expense) => sum + expense.amount);
   }
 
   List<String> _getUniqueCategories() {
-    return _expenses.map((e) => e.category).toSet().toList()..sort();
+    return _filteredExpenses.map((e) => e.category).toSet().toList()..sort();
   }
 
   @override
@@ -108,6 +149,18 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Expense Log'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.analytics),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SummaryScreen(),
+                ),
+              );
+            },
+            tooltip: 'Summary & Analytics',
+          ),
           IconButton(
             icon: const Icon(Icons.import_export),
             onPressed: () {
@@ -129,22 +182,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   builder: (context) => const CategoryManagementScreen(),
                 ),
               ).then((_) {
-                _loadExpenses();
-                _loadCategoryColors(); // Reload colors when returning
+                _refreshAllData();
               });
             },
             tooltip: 'Manage Categories',
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadExpenses,
+            onPressed: _refreshAllData,
+            tooltip: 'Refresh',
           ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _loadExpenses,
+              onRefresh: _refreshAllData,
               child: CustomScrollView(
                 slivers: [
                   // Total Expenses Card
@@ -178,10 +231,18 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '${_expenses.length} transactions',
+                            '${_filteredExpenses.length} transactions',
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _getPeriodLabel(),
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 12,
                             ),
                           ),
                         ],
@@ -189,17 +250,37 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   
-                  // Main Category Chart
-                  if (_expenses.isNotEmpty)
+                  // Time Period Selector for Chart
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TimePeriodSelector(
+                        selectedPeriod: _selectedPeriod,
+                        onPeriodChanged: (period, startDate, endDate) {
+                          setState(() {
+                            _selectedPeriod = period;
+                            _customStartDate = startDate;
+                            _customEndDate = endDate;
+                          });
+                          _applyTimeFilter();
+                        },
+                        customStartDate: _customStartDate,
+                        customEndDate: _customEndDate,
+                      ),
+                    ),
+                  ),
+                  
+                  // Main Category Chart (Filtered by time period)
+                  if (_filteredExpenses.isNotEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
-                        child: ExpenseChart(expenses: _expenses),
+                        child: ExpenseChart(expenses: _filteredExpenses),
                       ),
                     ),
                   
                   // Category Selector for Subcategory Chart
-                  if (_expenses.isNotEmpty && uniqueCategories.isNotEmpty)
+                  if (_filteredExpenses.isNotEmpty && uniqueCategories.isNotEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -270,10 +351,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   
                   // Subcategory Chart
-                  if (_selectedCategory != null && _expenses.any((e) => e.category == _selectedCategory))
+                  if (_selectedCategory != null && _filteredExpenses.any((e) => e.category == _selectedCategory))
                     SliverToBoxAdapter(
                       child: SubcategoryChart(
-                        expenses: _expenses,
+                        expenses: _filteredExpenses,
                         category: _selectedCategory!,
                       ),
                     ),
@@ -282,18 +363,30 @@ class _HomeScreenState extends State<HomeScreen> {
                   SliverPadding(
                     padding: const EdgeInsets.all(16),
                     sliver: SliverToBoxAdapter(
-                      child: Text(
-                        'Recent Transactions',
-                        style: Theme.of(context).textTheme.titleLarge,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Recent Transactions',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          Text(
+                            '${_filteredExpenses.length} total',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                   
-                  // Expense List - Pass category colors here
+                  // Expense List
                   ExpenseList(
-                    expenses: _expenses,
+                    expenses: _filteredExpenses,
                     onDelete: _deleteExpense,
-                    categoryColors: _categoryColors, // Pass the colors map
+                    categoryColors: _categoryColors,
                   ),
                 ],
               ),
@@ -328,7 +421,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (confirm == true) {
       await _databaseService.deleteExpense(expense.id!);
-      _loadExpenses();
+      _refreshAllData();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Expense deleted')),
       );
@@ -341,8 +434,7 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
     );
     if (result == true) {
-      _loadExpenses();
-      _loadCategoryColors();
+      _refreshAllData();
     }
   }
 }

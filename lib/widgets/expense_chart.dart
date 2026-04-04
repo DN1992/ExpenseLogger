@@ -15,7 +15,7 @@ class ExpenseChart extends StatefulWidget {
 
 class _ExpenseChartState extends State<ExpenseChart> {
   Map<String, double> _categoryTotals = {};
-  Map<String, UserCategory> _categoryInfo = {};
+  Map<String, Color> _categoryColors = {};
   bool _isLoading = true;
 
   @override
@@ -29,14 +29,11 @@ class _ExpenseChartState extends State<ExpenseChart> {
       final dbService = DatabaseService();
       final categories = await dbService.getAllMainCategories();
       
-      // Create a map for quick lookup
       for (var category in categories) {
-        _categoryInfo[category.name] = category;
+        _categoryColors[category.name] = Color(category.colorValue);
       }
       
-      // Calculate totals
       _calculateTotals();
-      
       setState(() {
         _isLoading = false;
       });
@@ -55,11 +52,19 @@ class _ExpenseChartState extends State<ExpenseChart> {
       totals[expense.category] = (totals[expense.category] ?? 0) + expense.amount;
     }
     
-    // Sort by amount (highest first)
     final sortedEntries = totals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     
     _categoryTotals = Map.fromEntries(sortedEntries);
+  }
+
+  @override
+  void didUpdateWidget(ExpenseChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.expenses != widget.expenses) {
+      _calculateTotals();
+      setState(() {});
+    }
   }
 
   @override
@@ -109,22 +114,15 @@ class _ExpenseChartState extends State<ExpenseChart> {
                   sections: _getPieSections(),
                   sectionsSpace: 2,
                   centerSpaceRadius: 40,
-                  pieTouchData: PieTouchData(
-                    touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                      // Handle touch events if needed
-                    },
-                  ),
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            // Legend
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: _categoryTotals.entries.map((entry) {
-                final categoryName = entry.key;
-                final color = _getCategoryColor(categoryName);
+                final color = _categoryColors[entry.key] ?? Colors.grey;
                 final percentage = (entry.value / totalAmount * 100);
                 
                 return Container(
@@ -150,7 +148,7 @@ class _ExpenseChartState extends State<ExpenseChart> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        categoryName,
+                        entry.key,
                         style: const TextStyle(fontSize: 13),
                       ),
                       const SizedBox(width: 4),
@@ -184,8 +182,7 @@ class _ExpenseChartState extends State<ExpenseChart> {
     final totalAmount = _categoryTotals.values.fold(0.0, (sum, amount) => sum + amount);
     
     return _categoryTotals.entries.map((entry) {
-      final categoryName = entry.key;
-      final color = _getCategoryColor(categoryName);
+      final color = _categoryColors[entry.key] ?? Colors.grey;
       final percentage = (entry.value / totalAmount * 100);
       
       return PieChartSectionData(
@@ -199,30 +196,8 @@ class _ExpenseChartState extends State<ExpenseChart> {
           color: Colors.white,
         ),
         titlePositionPercentageOffset: 0.6,
-        showTitle: percentage > 5, // Only show title if slice is large enough
+        showTitle: percentage > 5,
       );
     }).toList();
-  }
-
-  Color _getCategoryColor(String categoryName) {
-    // Try to get color from database
-    if (_categoryInfo.containsKey(categoryName)) {
-      return Color(_categoryInfo[categoryName]!.colorValue);
-    }
-    
-    // Fallback colors if category not found in database
-    final fallbackColors = {
-      'Food & Dining': Colors.orange,
-      'Transportation': Colors.blue,
-      'Shopping': Colors.purple,
-      'Entertainment': Colors.pink,
-      'Bills & Utilities': Colors.red,
-      'Healthcare': Colors.green,
-      'Education': Colors.teal,
-      'Travel': Colors.indigo,
-      'Personal Care': Colors.deepPurple,
-    };
-    
-    return fallbackColors[categoryName] ?? Colors.grey;
   }
 }

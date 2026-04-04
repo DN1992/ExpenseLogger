@@ -4,6 +4,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'dart:io' show Platform;
 import 'screens/home_screen.dart';
 import 'services/database_service.dart';
+import 'screens/summary_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,6 +56,9 @@ class MyApp extends StatelessWidget {
         ),
         home: const HomeScreen(),
         debugShowCheckedModeBanner: false,
+        routes: {
+          '/summary': (context) => const SummaryScreen(),
+        },
       ),
     );
   }
