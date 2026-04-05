@@ -50,111 +50,143 @@ class ExpenseList extends StatelessWidget {
       );
     }
 
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final expense = expenses[index];
-          final categoryColor = categoryColors[expense.category] ?? Colors.grey;
-          
-          return Dismissible(
-            key: Key(expense.id.toString()),
-            direction: DismissDirection.endToStart,
-            background: Container(
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.only(right: 20),
-              color: Colors.red,
-              child: const Icon(
-                Icons.delete,
-                color: Colors.white,
+    return SliverPadding(
+      padding: const EdgeInsets.only(bottom: 80), // Add padding for FAB
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final expense = expenses[index];
+            final categoryColor = categoryColors[expense.category] ?? Colors.grey;
+            
+            return Dismissible(
+              key: Key(expense.id.toString()),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                color: Colors.red,
+                child: const Icon(
+                  Icons.delete,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            onDismissed: (direction) {
-              onDelete(expense);
-            },
-            child: GestureDetector(
-              onLongPress: () {
-                onEdit(expense);
+              onDismissed: (direction) {
+                onDelete(expense);
               },
-              child: RepaintBoundary(
-                child: Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 4,
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: categoryColor,
-                      child: Text(
-                        expense.category[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+              child: GestureDetector(
+                onLongPress: () {
+                  onEdit(expense);
+                },
+                child: RepaintBoundary(
+                  child: Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: categoryColor,
+                        child: Text(
+                          expense.category[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                    title: Text(
-                      expense.title,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(expense.category),
-                        if (expense.subcategory != null)
+                      title: Text(
+                        expense.title,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(expense.category),
+                          if (expense.subcategory != null)
+                            Text(
+                              '  • ${expense.subcategory}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                                color: Colors.grey,
+                              ),
+                            ),
                           Text(
-                            '  • ${expense.subcategory}',
+                            DateFormat('MMM dd, yyyy').format(expense.date),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          if (expense.tags.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Wrap(
+                                spacing: 4,
+                                runSpacing: 2,
+                                children: expense.tags.map((tag) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade50,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.blue.shade200),
+                                    ),
+                                    child: Text(
+                                      tag,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.blue.shade700,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                        ],
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '€${expense.amount.toStringAsFixed(2)}',
                             style: const TextStyle(
-                              fontSize: 12,
-                              fontStyle: FontStyle.italic,
-                              color: Colors.grey,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
                             ),
                           ),
-                        Text(
-                          DateFormat('MMM dd, yyyy').format(expense.date),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        if (expense.tags.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Wrap(
-                              spacing: 4,
-                              runSpacing: 2,
-                              children: expense.tags.map((tag) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade50,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.blue.shade200),
-                                  ),
-                                  child: Text(
-                                    tag,
+                          if (expense.isFoodSubsidy)
+                            Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.restaurant, size: 10, color: Colors.green),
+                                  SizedBox(width: 2),
+                                  Text(
+                                    'Subsidy',
                                     style: TextStyle(
                                       fontSize: 10,
-                                      color: Colors.blue.shade700,
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                );
-                              }).toList(),
+                                ],
+                              ),
                             ),
-                          ),
-                      ],
-                    ),
-                    trailing: Text(
-                      '€${expense.amount.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
+                        ],
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
-        childCount: expenses.length,
+            );
+          },
+          childCount: expenses.length,
+        ),
       ),
     );
   }

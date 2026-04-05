@@ -49,7 +49,7 @@ class DatabaseService {
       // Don't initialize databaseFactory here - it's already done in main.dart
       return await openDatabase(
         path,
-        version: 4,
+        version: 5,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         singleInstance: true,
@@ -73,7 +73,8 @@ class DatabaseService {
         date TEXT NOT NULL,
         note TEXT,
         receiptPath TEXT,
-        tags TEXT
+        tags TEXT,
+        isFoodSubsidy INTEGER DEFAULT 0
       )
     ''');
     
@@ -130,6 +131,10 @@ class DatabaseService {
       // Add indexes
       await db.execute('CREATE INDEX idx_expenses_date ON expenses(date)');
       await db.execute('CREATE INDEX idx_expenses_category ON expenses(category)');
+    }
+
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE expenses ADD COLUMN isFoodSubsidy INTEGER DEFAULT 0');
     }
   }
 

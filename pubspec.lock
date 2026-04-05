@@ -174,14 +174,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.3.1"
-  flutter_flipperkit:
-    dependency: "direct dev"
-    description:
-      name: flutter_flipperkit
-      sha256: c1cabb668fc5c7eba27a6653e536dc29dd05de0c366f939cbf25e1df169ee3d9
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.29"
   flutter_lints:
     dependency: "direct dev"
     description:

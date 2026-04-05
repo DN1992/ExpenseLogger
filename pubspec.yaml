@@ -1,4 +1,4 @@
-name: expense_log
+name: Expense_Logger
 description: A new Flutter expense log application.
 publish_to: 'none'
 version: 1.0.0+1
@@ -9,15 +9,26 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # UI & State Management
   provider: ^6.1.1
-  sqflite: ^2.3.2
-  sqflite_common_ffi: ^2.3.2  # Critical for Linux desktop
-  path: ^1.9.0
   intl: ^0.20.2
-  fl_chart: ^1.2.0
+
+  # Database
+  sqflite: ^2.3.2
+  sqflite_common_ffi: ^2.3.2
+  path: ^1.9.0
   path_provider: ^2.1.1
+  
+  # Charts
+  fl_chart: ^1.2.0
+  
+  # Permissions
   permission_handler: ^12.0.1
+
+  # Sharing
   share_plus: ^12.0.2  # Optional, for sharing files
+  
+  # Speed Optimization
   flutter_native_splash: ^2.3.8  # Faster splash screen
   cached_network_image: ^3.3.0   # If using images later
 
@@ -25,10 +36,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  flutter_flipperkit: ^0.0.15   # For performance profiling (debug only)
-
 
 flutter:
   uses-material-design: true
-  assets: # Enable aggressive optimizations
-    - assets/
+#  assets: # Enable aggressive optimizations
+#    - assets/

@@ -5,9 +5,8 @@ class Expense {
   String category;
   String? subcategory;
   DateTime date;
-  String? note;
-  String? receiptPath;
-  List<String> tags; // Add tags field
+  List<String> tags;
+  bool isFoodSubsidy;  // New field for food subsidy
 
   Expense({
     this.id,
@@ -16,9 +15,8 @@ class Expense {
     required this.category,
     this.subcategory,
     required this.date,
-    this.note,
-    this.receiptPath,
-    this.tags = const [], // Initialize as empty list
+    this.tags = const [],
+    this.isFoodSubsidy = false,  // Default to false
   });
 
   Map<String, dynamic> toMap() {
@@ -29,9 +27,8 @@ class Expense {
       'category': category,
       'subcategory': subcategory,
       'date': date.toIso8601String(),
-      'note': note,
-      'receiptPath': receiptPath,
-      'tags': tags.join(','), // Store tags as comma-separated string
+      'tags': tags.join(','),
+      'isFoodSubsidy': isFoodSubsidy ? 1 : 0,  // Store as integer
     };
   }
 
@@ -45,16 +42,15 @@ class Expense {
       category: map['category'],
       subcategory: map['subcategory'],
       date: DateTime.parse(map['date']),
-      note: map['note'],
-      receiptPath: map['receiptPath'],
       tags: map['tags'] != null && map['tags'].toString().isNotEmpty
           ? (map['tags'] as String).split(',').map((t) => t.trim()).toList()
           : [],
+      isFoodSubsidy: map['isFoodSubsidy'] == 1,  // Convert from integer
     );
   }
 
   @override
   String toString() {
-    return 'Expense(id: $id, title: $title, amount: $amount, category: $category, subcategory: $subcategory, tags: $tags, date: $date)';
+    return 'Expense(id: $id, title: $title, amount: $amount, category: $category, subcategory: $subcategory, tags: $tags, isFoodSubsidy: $isFoodSubsidy, date: $date)';
   }
 }

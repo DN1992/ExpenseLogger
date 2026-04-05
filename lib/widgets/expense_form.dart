@@ -27,6 +27,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
   List<String> _tags = [];
   bool _isSaving = false;
   bool _loadingCategories = true;
+  bool _isFoodSubsidy = false;
 
   @override
   void initState() {
@@ -41,6 +42,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
       _selectedSubcategory = widget.expense!.subcategory;
       _selectedDate = widget.expense!.date;
       _tags = List.from(widget.expense!.tags);
+      _isFoodSubsidy = widget.expense!.isFoodSubsidy;
     }
   }
 
@@ -154,6 +156,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
           subcategory: _selectedSubcategory,
           date: _selectedDate,
           tags: _tags,
+          isFoodSubsidy: _isFoodSubsidy,
         );
 
         final databaseService = DatabaseService();
@@ -429,7 +432,38 @@ class _ExpenseFormState extends State<ExpenseForm> {
                       );
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+                  // Food Subsidy Toggle
+                  Card(
+                    color: _isFoodSubsidy ? Colors.green.shade50 : null,
+                    child: SwitchListTile(
+                      title: const Text(
+                        'Food Subsidy',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        _isFoodSubsidy 
+                            ? 'This expense is eligible for food subsidy reimbursement'
+                            : 'Mark if this expense qualifies for food subsidy',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      value: _isFoodSubsidy,
+                      onChanged: (value) {
+                        setState(() {
+                          _isFoodSubsidy = value;
+                        });
+                      },
+                      activeColor: Colors.green,
+                      secondary: Icon(
+                        _isFoodSubsidy ? Icons.restaurant : Icons.restaurant_outlined,
+                        color: _isFoodSubsidy ? Colors.green : Colors.grey,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
                   // Save Button
                   ElevatedButton(

@@ -500,20 +500,26 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   ),
                   
                   // Expense List
-                  ExpenseList(
-                    expenses: _filteredExpenses,
-                    onDelete: _deleteExpense,
-                    onEdit: _editExpense,
-                    categoryColors: _categoryColors,
+                  SliverPadding(
+                    padding: const EdgeInsets.only(bottom: 80), // Add space for FAB
+                    sliver: ExpenseList(
+                      expenses: _filteredExpenses,
+                      onDelete: _deleteExpense,
+                      onEdit: _editExpense,
+                      categoryColors: _categoryColors,
+                    ),
                   ),
                   
                   // Loading indicator for pagination
                   if (_isLoadingMore)
-                    const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Center(
-                          child: CircularProgressIndicator(),
+                    SliverPadding(
+                      padding: const EdgeInsets.only(bottom: 80),
+                      sliver: const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(
+                            child: CircularProgressIndicator(),
+                          ),
                         ),
                       ),
                     ),
