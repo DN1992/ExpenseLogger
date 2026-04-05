@@ -254,7 +254,7 @@ class _ExportConfigScreenState extends State<ExportConfigScreen> {
                   }
                 });
               },
-              activeColor: Colors.green,
+              activeThumbColor: Colors.green,
             ),
             
             if (_useDateRange) ...[

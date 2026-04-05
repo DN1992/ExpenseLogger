@@ -56,26 +56,36 @@ class _SummaryScreenState extends State<SummaryScreen> {
     
     switch (_selectedPeriod) {
       case TimePeriod.daily:
-        startDate = DateTime(endDate.year, endDate.month, endDate.day);
-        endDate = startDate.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
+        startDate = DateTime(endDate.year, endDate.month, endDate.day, 0, 0, 0);
+        endDate = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59, 999);
         break;
       case TimePeriod.weekly:
         startDate = endDate.subtract(Duration(days: endDate.weekday - 1));
-        startDate = DateTime(startDate.year, startDate.month, startDate.day);
-        endDate = startDate.add(const Duration(days: 7)).subtract(const Duration(seconds: 1));
+        startDate = DateTime(startDate.year, startDate.month, startDate.day, 0, 0, 0);
+        endDate = startDate.add(const Duration(days: 7)).subtract(const Duration(milliseconds: 1));
         break;
       case TimePeriod.monthly:
-        startDate = DateTime(endDate.year, endDate.month, 1);
-        endDate = DateTime(endDate.year, endDate.month + 1, 0);
+        startDate = DateTime(endDate.year, endDate.month, 1, 0, 0, 0);
+        endDate = DateTime(endDate.year, endDate.month + 1, 0, 23, 59, 59, 999);
         break;
       case TimePeriod.yearly:
-        startDate = DateTime(endDate.year, 1, 1);
-        endDate = DateTime(endDate.year, 12, 31);
+        startDate = DateTime(endDate.year, 1, 1, 0, 0, 0);
+        endDate = DateTime(endDate.year, 12, 31, 23, 59, 59, 999);
         break;
       case TimePeriod.custom:
         if (_customStartDate != null && _customEndDate != null) {
-          startDate = _customStartDate!;
-          endDate = _customEndDate!;
+          startDate = DateTime(
+            _customStartDate!.year, 
+            _customStartDate!.month, 
+            _customStartDate!.day, 
+            0, 0, 0
+          );
+          endDate = DateTime(
+            _customEndDate!.year, 
+            _customEndDate!.month, 
+            _customEndDate!.day, 
+            23, 59, 59, 999
+          );
         } else {
           startDate = DateTime(2020, 1, 1);
         }
@@ -83,8 +93,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
     }
     
     _filteredExpenses = _allExpenses.where((e) {
-      return e.date.isAfter(startDate.subtract(const Duration(days: 1))) && 
-             e.date.isBefore(endDate.add(const Duration(days: 1)));
+      return e.date.isAfter(startDate.subtract(const Duration(milliseconds: 1))) && 
+            e.date.isBefore(endDate.add(const Duration(milliseconds: 1)));
     }).toList();
     
     _calculateStatistics();

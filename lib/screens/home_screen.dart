@@ -6,12 +6,12 @@ import '../models/user_category.dart';
 import '../widgets/expense_chart.dart';
 import '../widgets/expense_list.dart';
 import '../widgets/time_period_selector.dart';
+import '../widgets/subcategory_chart.dart';
 import 'add_expense_screen.dart';
 import 'category_management_screen.dart';
 import 'export_config_screen.dart';
 import 'summary_screen.dart';
-import '../widgets/subcategory_chart.dart';
-import '../screens/edit_expense_screen.dart';
+import 'edit_expense_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,7 +20,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
   late DatabaseService _databaseService;
   List<Expense> _allExpenses = [];
   List<Expense> _filteredExpenses = [];
@@ -28,27 +28,83 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _selectedCategory;
   Map<String, Color> _categoryColors = {};
   
-  // Time period filter for chart
   TimePeriod _selectedPeriod = TimePeriod.monthly;
   DateTime? _customStartDate;
   DateTime? _customEndDate;
+  
+  // Pagination
+  final ScrollController _scrollController = ScrollController();
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+  int _currentPage = 0;
+  static const int _pageSize = 30;
+
+  @override
+  bool get wantKeepAlive => true; // Keep state when navigating
 
   @override
   void initState() {
     super.initState();
     _databaseService = DatabaseService();
     _refreshAllData();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent - 200) {
+      _loadMoreExpenses();
+    }
+  }
+
+  Future<void> _loadMoreExpenses() async {
+    if (_isLoadingMore || !_hasMore) return;
+    
+    setState(() {
+      _isLoadingMore = true;
+    });
+    
+    try {
+      final newExpenses = await _databaseService.getExpensesPaginated(
+        limit: _pageSize,
+        offset: (_currentPage + 1) * _pageSize,
+      );
+      
+      if (newExpenses.isEmpty) {
+        _hasMore = false;
+      } else {
+        setState(() {
+          _allExpenses.addAll(newExpenses);
+          _currentPage++;
+        });
+        _applyTimeFilter();
+      }
+    } catch (e) {
+      print('Error loading more: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
+    }
   }
 
   Future<void> _refreshAllData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _currentPage = 0;
+      _hasMore = true;
+    });
+    
     try {
-      // Load expenses
-      final expenses = await _databaseService.getAllExpenses();
+      // Load first page only for faster initial load
+      final expenses = await _databaseService.getExpensesPaginated(
+        limit: _pageSize,
+        offset: 0,
+      );
       
-      // Load category colors
-      final dbService = DatabaseService();
-      final categories = await dbService.getAllMainCategories();
+      final categories = await _databaseService.getAllMainCategories();
       
       final Map<String, Color> colors = {};
       for (var category in categories) {
@@ -58,9 +114,9 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _allExpenses = expenses;
         _categoryColors = colors;
+        _currentPage = 0;
       });
       
-      // Apply time filter
       _applyTimeFilter();
       
       setState(() {
@@ -142,8 +198,67 @@ class _HomeScreenState extends State<HomeScreen> {
     return _filteredExpenses.map((e) => e.category).toSet().toList()..sort();
   }
 
+  Future<void> _deleteExpense(Expense expense) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Expense'),
+        content: Text('Are you sure you want to delete "${expense.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _databaseService.deleteExpense(expense.id!);
+      _refreshAllData();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Expense deleted')),
+      );
+    }
+  }
+
+  Future<void> _editExpense(Expense expense) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditExpenseScreen(expense: expense),
+      ),
+    );
+    if (result == true) {
+      _refreshAllData();
+    }
+  }
+
+  Future<void> _navigateToAddExpense() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
+    );
+    if (result == true) {
+      _refreshAllData();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    
     final uniqueCategories = _getUniqueCategories();
     
     return Scaffold(
@@ -200,6 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
           : RefreshIndicator(
               onRefresh: _refreshAllData,
               child: CustomScrollView(
+                controller: _scrollController,
                 slivers: [
                   // Total Expenses Card
                   SliverToBoxAdapter(
@@ -251,7 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   
-                  // Time Period Selector for Chart
+                  // Time Period Selector
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -271,7 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   
-                  // Main Category Chart (Filtered by time period)
+                  // Main Category Chart
                   if (_filteredExpenses.isNotEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
@@ -280,7 +396,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   
-                  // Category Selector for Subcategory Chart
+                  // Category Selector
                   if (_filteredExpenses.isNotEmpty && uniqueCategories.isNotEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
@@ -387,67 +503,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   ExpenseList(
                     expenses: _filteredExpenses,
                     onDelete: _deleteExpense,
-                    onEdit: _editExpense, // Add this line
+                    onEdit: _editExpense,
                     categoryColors: _categoryColors,
                   ),
+                  
+                  // Loading indicator for pagination
+                  if (_isLoadingMore)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _navigateToAddExpense(),
+        onPressed: _navigateToAddExpense,
         icon: const Icon(Icons.add),
         label: const Text('Add Expense'),
       ),
     );
-  }
-
-  Future<void> _deleteExpense(Expense expense) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Expense'),
-        content: Text('Are you sure you want to delete "${expense.title}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await _databaseService.deleteExpense(expense.id!);
-      _refreshAllData();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Expense deleted')),
-      );
-    }
-  }
-
-  Future<void> _navigateToAddExpense() async {
-    final result = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
-    );
-    if (result == true) {
-      _refreshAllData();
-    }
-  }
-  Future<void> _editExpense(Expense expense) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EditExpenseScreen(expense: expense),
-      ),
-    );
-    if (result == true) {
-      _refreshAllData();
-    }
   }
 }

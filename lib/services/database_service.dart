@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:flutter/material.dart';
 import '../models/expense.dart';
 import '../models/user_category.dart';
 import '../models/categories.dart';
@@ -12,6 +13,13 @@ class DatabaseService {
   DatabaseService._internal();
 
   static Database? _database;
+  
+  // Cache for categories to avoid repeated DB queries
+  List<UserCategory> _cachedMainCategories = [];
+  Map<int, List<UserCategory>> _cachedSubcategories = {};
+  Map<String, Color> _cachedCategoryColors = {};
+  DateTime? _lastCategoryCacheTime;
+  static const _cacheDuration = Duration(minutes: 5);
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -38,11 +46,13 @@ class DatabaseService {
       
       print('Database path: $path');
 
+      // Don't initialize databaseFactory here - it's already done in main.dart
       return await openDatabase(
         path,
-        version: 4, // Version 4 includes tags column
+        version: 4,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
+        singleInstance: true,
       );
     } catch (e) {
       print('Error initializing database: $e');
@@ -50,11 +60,9 @@ class DatabaseService {
     }
   }
 
-  // This method is called when the database is created for the first time
   Future<void> _onCreate(Database db, int version) async {
     print('Creating database tables...');
     
-    // Create expenses table
     await db.execute('''
       CREATE TABLE expenses(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,7 +77,11 @@ class DatabaseService {
       )
     ''');
     
-    // Create user_categories table
+    // Add indexes for faster queries
+    await db.execute('CREATE INDEX idx_expenses_date ON expenses(date)');
+    await db.execute('CREATE INDEX idx_expenses_category ON expenses(category)');
+    await db.execute('CREATE INDEX idx_expenses_date_category ON expenses(date, category)');
+    
     await db.execute('''
       CREATE TABLE user_categories(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,23 +95,21 @@ class DatabaseService {
       )
     ''');
     
-    // Insert default categories
-    await _insertDefaultCategories(db);
+    await db.execute('CREATE INDEX idx_categories_parent ON user_categories(parentId)');
+    await db.execute('CREATE INDEX idx_categories_order ON user_categories(displayOrder)');
     
+    await _insertDefaultCategories(db);
     print('Database tables created successfully');
   }
 
-  // This method is called when upgrading to a newer version
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     print('Upgrading database from version $oldVersion to $newVersion');
     
     if (oldVersion < 2) {
-      print('Adding subcategory column...');
       await db.execute('ALTER TABLE expenses ADD COLUMN subcategory TEXT');
     }
     
     if (oldVersion < 3) {
-      print('Creating user_categories table...');
       await db.execute('''
         CREATE TABLE user_categories(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,15 +126,16 @@ class DatabaseService {
     }
     
     if (oldVersion < 4) {
-      print('Adding tags column...');
       await db.execute('ALTER TABLE expenses ADD COLUMN tags TEXT');
+      // Add indexes
+      await db.execute('CREATE INDEX idx_expenses_date ON expenses(date)');
+      await db.execute('CREATE INDEX idx_expenses_category ON expenses(category)');
     }
   }
 
   Future<void> _insertDefaultCategories(Database db) async {
     print('Inserting default categories...');
     
-    // First, insert all main categories
     Map<String, int> mainCategoryIds = {};
     
     for (var i = 0; i < defaultCategories.length; i++) {
@@ -138,28 +149,21 @@ class DatabaseService {
         'displayOrder': i,
       });
       mainCategoryIds[cat.name] = id;
-      print('Inserted main category: ${cat.name} with ID: $id');
     }
     
-    // Now insert all subcategories for each main category
     for (var cat in defaultCategories) {
       final parentId = mainCategoryIds[cat.name];
       if (parentId != null) {
         for (var j = 0; j < cat.subcategories.length; j++) {
           final subName = cat.subcategories[j];
-          try {
-            final id = await db.insert('user_categories', {
-              'name': subName,
-              'iconName': cat.icon.toString().split('.').last,
-              'colorValue': cat.color.value,
-              'isCustom': 0,
-              'parentId': parentId,
-              'displayOrder': j,
-            });
-            print('Inserted subcategory: $subName under ${cat.name} with ID: $id');
-          } catch (e) {
-            print('Error inserting subcategory $subName: $e');
-          }
+          await db.insert('user_categories', {
+            'name': subName,
+            'iconName': cat.icon.toString().split('.').last,
+            'colorValue': cat.color.value,
+            'isCustom': 0,
+            'parentId': parentId,
+            'displayOrder': j,
+          });
         }
       }
     }
@@ -172,7 +176,6 @@ class DatabaseService {
     try {
       Database db = await database;
       
-      // Validate expense data
       if (expense.title.isEmpty) {
         throw Exception('Title cannot be empty');
       }
@@ -184,11 +187,7 @@ class DatabaseService {
       }
 
       final map = expense.toMap();
-      print('Inserting expense with data: $map');
-      
       int id = await db.insert('expenses', map);
-      print('Insert successful, ID: $id');
-      
       return id;
     } catch (e) {
       print('Error in insertExpense: $e');
@@ -204,13 +203,29 @@ class DatabaseService {
         orderBy: 'date DESC',
       );
       
-      print('Retrieved ${maps.length} expenses');
-      
       return List.generate(maps.length, (i) {
         return Expense.fromMap(maps[i]);
       });
     } catch (e) {
       print('Error getting expenses: $e');
+      return [];
+    }
+  }
+
+  // Paginated query for better performance
+  Future<List<Expense>> getExpensesPaginated({int limit = 30, int offset = 0}) async {
+    try {
+      Database db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'expenses',
+        orderBy: 'date DESC',
+        limit: limit,
+        offset: offset,
+      );
+      
+      return List.generate(maps.length, (i) => Expense.fromMap(maps[i]));
+    } catch (e) {
+      print('Error getting paginated expenses: $e');
       return [];
     }
   }
@@ -308,17 +323,34 @@ class DatabaseService {
     }
   }
 
-  // ============ Category Methods ============
+  // ============ Category Methods with Caching ============
 
-  Future<List<UserCategory>> getAllMainCategories() async {
+  void _clearCategoryCache() {
+    _cachedMainCategories = [];
+    _cachedSubcategories.clear();
+    _cachedCategoryColors.clear();
+    _lastCategoryCacheTime = null;
+  }
+
+  Future<List<UserCategory>> getAllMainCategories({bool forceRefresh = false}) async {
     try {
+      if (!forceRefresh && 
+          _cachedMainCategories.isNotEmpty && 
+          _lastCategoryCacheTime != null &&
+          DateTime.now().difference(_lastCategoryCacheTime!) < _cacheDuration) {
+        return _cachedMainCategories;
+      }
+      
       Database db = await database;
       final result = await db.query(
         'user_categories',
         where: 'parentId IS NULL',
         orderBy: 'displayOrder, name',
       );
-      return result.map((map) => UserCategory.fromMap(map)).toList();
+      
+      _cachedMainCategories = result.map((map) => UserCategory.fromMap(map)).toList();
+      _lastCategoryCacheTime = DateTime.now();
+      return _cachedMainCategories;
     } catch (e) {
       print('Error getting main categories: $e');
       return [];
@@ -327,6 +359,10 @@ class DatabaseService {
 
   Future<List<UserCategory>> getSubcategories(int parentId) async {
     try {
+      if (_cachedSubcategories.containsKey(parentId)) {
+        return _cachedSubcategories[parentId]!;
+      }
+      
       Database db = await database;
       final result = await db.query(
         'user_categories',
@@ -334,7 +370,10 @@ class DatabaseService {
         whereArgs: [parentId],
         orderBy: 'displayOrder, name',
       );
-      return result.map((map) => UserCategory.fromMap(map)).toList();
+      
+      final subs = result.map((map) => UserCategory.fromMap(map)).toList();
+      _cachedSubcategories[parentId] = subs;
+      return subs;
     } catch (e) {
       print('Error getting subcategories: $e');
       return [];
@@ -360,6 +399,7 @@ class DatabaseService {
   }
 
   Future<int> insertCategory(UserCategory category) async {
+    _clearCategoryCache();
     try {
       Database db = await database;
       
@@ -368,13 +408,9 @@ class DatabaseService {
       }
       
       final map = category.toMap();
-      map.remove('id'); // Remove id for auto-increment
-      
-      print('Inserting category with data: $map');
+      map.remove('id');
       
       int id = await db.insert('user_categories', map);
-      print('Category inserted with ID: $id');
-      
       return id;
     } catch (e) {
       print('Error inserting category: $e');
@@ -383,6 +419,7 @@ class DatabaseService {
   }
 
   Future<int> updateCategory(UserCategory category) async {
+    _clearCategoryCache();
     try {
       Database db = await database;
       return await db.update(
@@ -398,11 +435,10 @@ class DatabaseService {
   }
 
   Future<int> deleteCategory(int id) async {
+    _clearCategoryCache();
     try {
       Database db = await database;
-      // First, delete any subcategories
       await db.delete('user_categories', where: 'parentId = ?', whereArgs: [id]);
-      // Then delete the main category
       return await db.delete('user_categories', where: 'id = ?', whereArgs: [id]);
     } catch (e) {
       print('Error deleting category: $e');
@@ -416,7 +452,6 @@ class DatabaseService {
       final category = await getCategoryById(categoryId);
       if (category == null) return false;
       
-      // Check if any expense uses this category or subcategory
       final result = await db.query(
         'expenses',
         where: 'category = ? OR subcategory = ?',
